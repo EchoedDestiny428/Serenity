@@ -93,7 +93,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
        IMAGE_ICON, 
        0, 0, 
        LR_LOADFROMFILE | LR_DEFAULTSIZE
-   );(nullptr, IDI_APPLICATION);
+   );
 
    wcscpy_s(nid.szTip, L"Serenity Widget Manager");
 
