@@ -1,5 +1,8 @@
 #include "framework.h"
 #include "Serenity.h"
+#include <shellapi.h> 
+
+#define WM_TRAYICON (WM_USER + 1)
 
 // Global Variables
 HINSTANCE hInst;                                
@@ -34,7 +37,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
     return (int) msg.wParam;
 }
 
-// Registers the window class structure to define the core behavior and style of the widget.
+// Registers the window class structure to define the core behavior and style of the application.
 ATOM MyRegisterClass(HINSTANCE hInstance)
 {
     WNDCLASSEXW wcex;
@@ -55,7 +58,7 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
     return RegisterClassExW(&wcex);
 }
 
-// Creates and displays the frameless, always-on-top, layered widget window.
+// Creates the window as hidden, then registers a default application icon into the Windows system tray.
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    hInst = hInstance; 
@@ -63,7 +66,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    HWND hWnd = CreateWindowExW(
       WS_EX_LAYERED | WS_EX_TOPMOST,
       szWindowClass,                      
-      L"SerenityWidget",                            
+      L"Serenity",                            
       WS_POPUP,                           
       100, 100,                           
       400, 250,                           
@@ -75,26 +78,42 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
       return FALSE;
    }
 
-   ShowWindow(hWnd, nCmdShow);
-   UpdateWindow(hWnd);
+   ShowWindow(hWnd, SW_HIDE); 
+
+   NOTIFYICONDATAW nid = {};
+   nid.cbSize = sizeof(NOTIFYICONDATAW);
+   nid.hWnd = hWnd;
+   nid.uID = 1;
+   nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+   nid.uCallbackMessage = WM_TRAYICON;
+   nid.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
+   wcscpy_s(nid.szTip, L"Serenity Widget Manager");
+
+   Shell_NotifyIconW(NIM_ADD, &nid);
 
    return TRUE;
 }
 
-// Processes messages and system events sent to the widget window (e.g., painting and destruction).
+// Processes events, listening for right-clicks on the tray icon to close the app, and cleans up the icon on exit.
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
-    case WM_PAINT:
+    case WM_TRAYICON:
+        if (lParam == WM_RBUTTONUP)
         {
-            PAINTSTRUCT ps;
-            BeginPaint(hWnd, &ps);
-            EndPaint(hWnd, &ps);
+            DestroyWindow(hWnd);
         }
         break;
     case WM_DESTROY:
-        PostQuitMessage(0);
+        {
+            NOTIFYICONDATAW nid = {};
+            nid.cbSize = sizeof(NOTIFYICONDATAW);
+            nid.hWnd = hWnd;
+            nid.uID = 1;
+            Shell_NotifyIconW(NIM_DELETE, &nid);
+            PostQuitMessage(0);
+        }
         break;
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
