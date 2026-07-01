@@ -12,7 +12,6 @@ AppConfig SettingsManager::Load() {
     
     path += L"settings.ini";
 
-    cfg.opacity = GetPrivateProfileIntW(L"Overlay", L"Opacity", DEFAULT_OPACITY, path.c_str());
     cfg.triggerDelay = GetPrivateProfileIntW(L"Overlay", L"TriggerDelay", DEFAULT_TRIGGER_DELAY, path.c_str());
 
     return cfg;

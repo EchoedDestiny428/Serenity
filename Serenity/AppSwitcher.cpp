@@ -15,7 +15,7 @@ void AppSwitcher_Init(HINSTANCE hInstance)
 	settings.x = (GetSystemMetrics(SM_CXSCREEN) - settings.width) / 2;
 	settings.y = (GetSystemMetrics(SM_CYSCREEN) - settings.height) / 2;
 
-    settings.opacity = 220;
+    settings.opacity = 255;
 
     hAppSwitcherWnd = OverlayEngine_Create(hInstance, settings, DefWindowProcW);
 }
