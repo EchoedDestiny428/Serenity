@@ -6,7 +6,7 @@ HWND OverlayEngine_Create(HINSTANCE hInstance, OverlaySettings settings, WNDPROC
     wcex.lpfnWndProc = lpfnWndProc;
     wcex.hInstance = hInstance;
     wcex.lpszClassName = settings.className;
-    wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wcex.hbrBackground = (HBRUSH)GetStockObject(NULL_BRUSH); // Transparent default
     RegisterClassExW(&wcex);
 
     HWND hWnd = CreateWindowExW(
@@ -14,12 +14,16 @@ HWND OverlayEngine_Create(HINSTANCE hInstance, OverlaySettings settings, WNDPROC
         settings.className,
         nullptr,
         WS_POPUP,
-        500, 400, settings.width, settings.height,
+        settings.x, settings.y, settings.width, settings.height,
         nullptr, nullptr, hInstance, nullptr
     );
 
     if (hWnd) {
         SetLayeredWindowAttributes(hWnd, 0, settings.opacity, LWA_ALPHA);
+
+        if (settings.styleCallback) {
+            settings.styleCallback(hWnd);
+        }
     }
 
     return hWnd;
