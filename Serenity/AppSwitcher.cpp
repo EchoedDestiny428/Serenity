@@ -1,12 +1,23 @@
 #include "AppSwitcher.h"
 #include "OverlayEngine.h"
+#include <vector>
+#include <string>
+#include "SettingsManager.h"
 #include <dwmapi.h>
 #pragma comment(lib, "dwmapi.lib")
 
+// Global Variables
+
 static HWND hAppSwitcherWnd = nullptr;
 static bool isVisible = false;
+AppConfig g_config;
+int g_selectedIndex = 0;
 
-
+struct RunningApp {
+    HWND hwnd;
+    std::wstring title;
+};
+std::vector<RunningApp> g_runningApps;
 
 enum ACCENT_STATE {
     ACCENT_ENABLE_BLURBEHIND = 3,
@@ -28,6 +39,9 @@ struct WINDOWCOMPOSITIONATTRIBDATA {
 
 typedef BOOL(WINAPI* pfnSetWindowCompositionAttribute)(HWND, WINDOWCOMPOSITIONATTRIBDATA*);
 
+
+// Setup
+
 void __stdcall SetupModernBlur(HWND hWnd) {
     auto SetWindowCompositionAttribute = (pfnSetWindowCompositionAttribute)GetProcAddress(
         GetModuleHandleW(L"user32.dll"), "SetWindowCompositionAttribute");
@@ -45,9 +59,66 @@ void __stdcall SetupModernBlur(HWND hWnd) {
     }
 }
 
+// Cards
+
+void DrawCards(HWND hWnd, HDC hdc, const AppConfig& config, const std::vector<RunningApp>& apps, int selectedIndex) {
+    HBRUSH hDefaultBrush = CreateSolidBrush(RGB(40, 40, 40));
+    HBRUSH hSelectBrush = CreateSolidBrush(RGB(80, 80, 255));
+
+    for (size_t i = 0; i < apps.size(); ++i) {
+        int yPos = config.appSwitcher.appBox.startY +
+            (i * (config.appSwitcher.appBox.height + config.appSwitcher.appBox.padding));
+
+        RECT cardRect = {
+            config.appSwitcher.appBox.startX,
+            yPos,
+            config.appSwitcher.appBox.startX + config.appSwitcher.appBox.width,
+            yPos + config.appSwitcher.appBox.height
+        };
+
+        FillRect(hdc, &cardRect, (i == selectedIndex) ? hSelectBrush : hDefaultBrush);
+
+        SetBkMode(hdc, TRANSPARENT);
+        SetTextColor(hdc, RGB(255, 255, 255));
+        DrawTextW(hdc, apps[i].title.c_str(), -1, &cardRect, DT_SINGLELINE | DT_VCENTER | DT_CENTER);
+    }
+
+    DeleteObject(hDefaultBrush);
+    DeleteObject(hSelectBrush);
+}
+
+// Window Procedure
+
+LRESULT CALLBACK AppSwitcher_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+    switch (uMsg) {
+    case WM_PAINT: {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hWnd, &ps);
+
+        DrawCards(hWnd, hdc, g_config, g_runningApps, g_selectedIndex);
+
+        EndPaint(hWnd, &ps);
+        return 0;
+    }
+    case WM_DESTROY: {
+        PostQuitMessage(0);
+        return 0;
+    }
+    }
+    return DefWindowProcW(hWnd, uMsg, wParam, lParam);
+}
+
 
 void AppSwitcher_Init(HINSTANCE hInstance)
 {
+    g_config = SettingsManager::Load();
+
+    if (g_runningApps.empty()) {
+        g_runningApps.push_back({ nullptr, L"Mozilla Firefox" });
+        g_runningApps.push_back({ nullptr, L"Microsoft Visual Studio" });
+        g_runningApps.push_back({ nullptr, L"Discord" });
+    }
+
     OverlaySettings settings = { 0 };
     settings.className = L"AppSwitcherClass";
 
@@ -59,7 +130,7 @@ void AppSwitcher_Init(HINSTANCE hInstance)
 
     settings.styleCallback = SetupModernBlur;
 
-    hAppSwitcherWnd = OverlayEngine_Create(hInstance, settings, DefWindowProcW);
+    hAppSwitcherWnd = OverlayEngine_Create(hInstance, settings, AppSwitcher_WndProc);
 }
 
 bool AppSwitcher_IsVisible()
@@ -67,9 +138,12 @@ bool AppSwitcher_IsVisible()
     return isVisible;
 }
 
+
+// Blur
 void FadeWindow(HWND hWnd, bool fadeIn) {
     int alpha = fadeIn ? 0 : 255;
-    int step = 15;
+
+    int step = g_config.appSwitcher.blur.fadeStep;
 
     SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
 
@@ -79,10 +153,9 @@ void FadeWindow(HWND hWnd, bool fadeIn) {
         if (alpha < 0) alpha = 0;
 
         SetLayeredWindowAttributes(hWnd, 0, (BYTE)alpha, LWA_ALPHA);
-        Sleep(10);
+        Sleep(5);
     }
 }
-
 void AppSwitcher_Show() {
     if (!isVisible) {
         SetupModernBlur(hAppSwitcherWnd);
