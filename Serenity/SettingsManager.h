@@ -1,12 +1,22 @@
 #pragma once
 #include <windows.h>
 
-#define DEFAULT_OPACITY 220
-#define DEFAULT_TRIGGER_DELAY 500
+struct AppBox {
+    int width, height, padding, startX, startY;
+};
+
+struct Blur {
+	int triggerDelay;
+	int fadeStep;
+};
+
+struct AppSwitcher {
+    AppBox appBox;
+	Blur blur;
+};
 
 struct AppConfig {
-    int opacity;
-    int triggerDelay;
+	AppSwitcher appSwitcher;
 };
 
 class SettingsManager {
