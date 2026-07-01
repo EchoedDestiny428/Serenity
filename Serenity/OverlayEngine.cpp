@@ -20,10 +20,6 @@ HWND OverlayEngine_Create(HINSTANCE hInstance, OverlaySettings settings, WNDPROC
 
     if (hWnd) {
         SetLayeredWindowAttributes(hWnd, 0, settings.opacity, LWA_ALPHA);
-
-        if (settings.styleCallback) {
-            settings.styleCallback(hWnd);
-        }
     }
 
     return hWnd;
