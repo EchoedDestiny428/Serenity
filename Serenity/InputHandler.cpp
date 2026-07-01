@@ -14,7 +14,7 @@ void HandleInput() {
     if (isCapsHeld) {
         if (AppSwitcherHoldStart == 0) AppSwitcherHoldStart = GetTickCount64();
 
-        if (!AppSwitcher_IsVisible() && (GetTickCount64() - AppSwitcherHoldStart > (ULONGLONG)cfg.triggerDelay)) {
+        if (!AppSwitcher_IsVisible() && (GetTickCount64() - AppSwitcherHoldStart > (ULONGLONG)cfg.appSwitcher.blur.triggerDelay)) {
             AppSwitcher_Show();
         }
     }
@@ -22,7 +22,7 @@ void HandleInput() {
         if (AppSwitcherHoldStart != 0) {
             ULONGLONG duration = GetTickCount64() - AppSwitcherHoldStart;
 
-            if (duration > (ULONGLONG)cfg.triggerDelay) {
+            if (duration > (ULONGLONG)cfg.appSwitcher.blur.triggerDelay) {
                 if (AppSwitcher_IsVisible()) {
                     AppSwitcher_Hide();
 
