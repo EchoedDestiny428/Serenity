@@ -86,7 +86,15 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    nid.uID = 1;
    nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
    nid.uCallbackMessage = WM_TRAYICON;
-   nid.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
+
+   nid.hIcon = nid.hIcon = (HICON)LoadImageW(
+       nullptr, 
+       L"Assets\\Icons\\serenity.ico", 
+       IMAGE_ICON, 
+       0, 0, 
+       LR_LOADFROMFILE | LR_DEFAULTSIZE
+   );(nullptr, IDI_APPLICATION);
+
    wcscpy_s(nid.szTip, L"Serenity Widget Manager");
 
    Shell_NotifyIconW(NIM_ADD, &nid);
