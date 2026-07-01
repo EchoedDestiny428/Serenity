@@ -1,11 +1,16 @@
 #include "framework.h"
+
 #include "Serenity.h"
+#include "OverlayEngine.h"
+#include "AppSwitcher.h"
+#include "InputHandler.h"
+
 #include <shellapi.h> 
 
 #define WM_TRAYICON (WM_USER + 1)
 
 // Global Variables
-HINSTANCE hInst;                                
+HINSTANCE hInst;
 WCHAR szWindowClass[100];            
 
 // Forward declarations
@@ -18,6 +23,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 {
     UNREFERENCED_PARAMETER(hPrevInstance);
     UNREFERENCED_PARAMETER(lpCmdLine);
+    static ULONGLONG pressStartTime = 0;
+    static bool isOverlayOpen = false;
 
     LoadStringW(hInstance, IDC_SERENITY, szWindowClass, 100);
     MyRegisterClass(hInstance);
@@ -27,11 +34,19 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
         return FALSE;
     }
 
-    MSG msg;
-    while (GetMessage(&msg, nullptr, 0, 0))
+    MSG msg = {};
+    while (msg.message != WM_QUIT)
     {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
+        if (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE))
+        {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+        else
+        {
+            HandleInput();
+            Sleep(10);
+        }
     }
 
     return (int) msg.wParam;
@@ -98,6 +113,10 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    wcscpy_s(nid.szTip, L"Serenity Widget Manager");
 
    Shell_NotifyIconW(NIM_ADD, &nid);
+
+
+   // Initialize Components
+   AppSwitcher_Init(hInstance);
 
    return TRUE;
 }
