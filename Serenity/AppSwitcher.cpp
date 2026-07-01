@@ -67,18 +67,45 @@ bool AppSwitcher_IsVisible()
     return isVisible;
 }
 
-void AppSwitcher_Show()
-{
+void FadeWindow(HWND hWnd, bool fadeIn) {
+    int alpha = fadeIn ? 0 : 255;
+    int step = 15;
+
+    SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
+
+    while (fadeIn ? (alpha < 255) : (alpha > 0)) {
+        alpha += fadeIn ? step : -step;
+        if (alpha > 255) alpha = 255;
+        if (alpha < 0) alpha = 0;
+
+        SetLayeredWindowAttributes(hWnd, 0, (BYTE)alpha, LWA_ALPHA);
+        Sleep(10);
+    }
+}
+
+void AppSwitcher_Show() {
     if (!isVisible) {
-        ShowWindow(hAppSwitcherWnd, SW_SHOWNOACTIVATE);
+        SetupModernBlur(hAppSwitcherWnd);
+
+        SetLayeredWindowAttributes(hAppSwitcherWnd, 0, 0, LWA_ALPHA);
+        ShowWindow(hAppSwitcherWnd, SW_SHOWNA);
+
+        SetWindowLong(hAppSwitcherWnd, GWL_EXSTYLE,
+            GetWindowLong(hAppSwitcherWnd, GWL_EXSTYLE) & ~WS_EX_TRANSPARENT);
+
+        FadeWindow(hAppSwitcherWnd, true);
         isVisible = true;
     }
 }
 
-void AppSwitcher_Hide()
-{
-	if (isVisible) {
-		ShowWindow(hAppSwitcherWnd, SW_HIDE);
-		isVisible = false;
-	}
+void AppSwitcher_Hide() {
+    if (isVisible) {
+        FadeWindow(hAppSwitcherWnd, false);
+
+        ShowWindow(hAppSwitcherWnd, SW_HIDE);
+        SetWindowLong(hAppSwitcherWnd, GWL_EXSTYLE,
+            GetWindowLong(hAppSwitcherWnd, GWL_EXSTYLE) | WS_EX_TRANSPARENT);
+
+        isVisible = false;
+    }
 }
