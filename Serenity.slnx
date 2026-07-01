@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="Serenity/Serenity.vcxproj" Id="4796afd9-d00e-4f10-b46f-3155878741de" />
+</Solution>
