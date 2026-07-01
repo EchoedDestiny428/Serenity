@@ -1,17 +1,20 @@
 #include "InputHandler.h"
 #include "AppSwitcher.h"
+#include "SettingsManager.h"
 
 void HandleInput() {
-    
-    //AppSwitcher
 
-    static ULONGLONG capsPressStartTime = 0;
+    // AppSwitcher
+
+    static ULONGLONG AppSwitcherHoldStart = 0;
+    static AppConfig cfg = SettingsManager::Load();
+
     bool isCapsHeld = (GetAsyncKeyState(VK_CAPITAL) & 0x8000) != 0;
 
     if (isCapsHeld) {
-        if (capsPressStartTime == 0) capsPressStartTime = GetTickCount64();
+        if (AppSwitcherHoldStart == 0) AppSwitcherHoldStart = GetTickCount64();
 
-        if (!AppSwitcher_IsVisible() && (GetTickCount64() - capsPressStartTime > 500)) {
+        if (!AppSwitcher_IsVisible() && (GetTickCount64() - AppSwitcherHoldStart > (ULONGLONG)cfg.triggerDelay)) {
             AppSwitcher_Show();
         }
     }
@@ -19,8 +22,6 @@ void HandleInput() {
         if (AppSwitcher_IsVisible()) {
             AppSwitcher_Hide();
         }
-        capsPressStartTime = 0;
+        AppSwitcherHoldStart = 0;
     }
-
-    // 
 }
