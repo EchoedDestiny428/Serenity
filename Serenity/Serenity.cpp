@@ -110,19 +110,34 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_TRAYICON:
         if (lParam == WM_RBUTTONUP)
         {
+            HMENU hMenu = CreatePopupMenu();
+            AppendMenuW(hMenu, MF_STRING, 1001, L"Exit Serenity");
+            SetForegroundWindow(hWnd);
+            POINT pt;
+            GetCursorPos(&pt);
+            TrackPopupMenu(hMenu, TPM_RIGHTALIGN | TPM_BOTTOMALIGN, pt.x, pt.y, 0, hWnd, nullptr);
+            DestroyMenu(hMenu);
+        }
+        break;
+
+    case WM_COMMAND:
+        if (LOWORD(wParam) == 1001)
+        {
             DestroyWindow(hWnd);
         }
         break;
+
     case WM_DESTROY:
-        {
-            NOTIFYICONDATAW nid = {};
-            nid.cbSize = sizeof(NOTIFYICONDATAW);
-            nid.hWnd = hWnd;
-            nid.uID = 1;
-            Shell_NotifyIconW(NIM_DELETE, &nid);
-            PostQuitMessage(0);
-        }
-        break;
+    {
+        NOTIFYICONDATAW nid = {};
+        nid.cbSize = sizeof(NOTIFYICONDATAW);
+        nid.hWnd = hWnd;
+        nid.uID = 1;
+        Shell_NotifyIconW(NIM_DELETE, &nid);
+        PostQuitMessage(0);
+    }
+    break;
+
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
