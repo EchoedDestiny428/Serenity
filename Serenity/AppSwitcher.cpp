@@ -21,6 +21,34 @@ struct RunningApp {
 };
 std::vector<RunningApp> g_runningApps;
 
+// Get Running Applications
+
+BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
+    if (!IsWindowVisible(hwnd)) return TRUE;
+    int cloaked = 0;
+    DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked));
+    if (cloaked) return TRUE;
+    LONG exStyle = GetWindowLongW(hwnd, GWL_EXSTYLE);
+    if (exStyle & WS_EX_TOOLWINDOW) return TRUE;
+    int length = GetWindowTextLengthW(hwnd);
+    if (length == 0) return TRUE;
+    if (hwnd == hAppSwitcherWnd) return TRUE;
+    std::wstring title(length, L'\0');
+    GetWindowTextW(hwnd, &title[0], length + 1);
+    if (title == L"Program Manager") return TRUE;
+    auto* apps = reinterpret_cast<std::vector<RunningApp>*>(lParam);
+    apps->push_back({ hwnd, title });
+
+    return TRUE;
+}
+
+// Wrapper function to trigger the scrape
+void RefreshRunningApps() {
+    g_runningApps.clear();
+    EnumWindows(EnumWindowsProc, reinterpret_cast<LPARAM>(&g_runningApps));
+}
+
+
 enum ACCENT_STATE {
     ACCENT_ENABLE_BLURBEHIND = 3,
     ACCENT_ENABLE_ACRYLICBLURBEHIND = 4
@@ -202,6 +230,9 @@ void FadeWindow(HWND hWnd, bool fadeIn) {
 
 void AppSwitcher_Show() {
     if (!isVisible) {
+        RefreshRunningApps();
+        g_selectedIndex = 0;
+
         SetupModernBlur(hAppSwitcherWnd);
 
         SetLayeredWindowAttributes(hAppSwitcherWnd, 0, 0, LWA_ALPHA);
