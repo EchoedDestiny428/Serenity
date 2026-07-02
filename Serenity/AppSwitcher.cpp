@@ -5,6 +5,7 @@
 #include "SettingsManager.h"
 #include <dwmapi.h>
 #pragma comment(lib, "dwmapi.lib")
+#pragma comment(lib, "msimg32.lib")
 
 // Global Variables
 
@@ -13,7 +14,7 @@ static bool isVisible = false;
 AppConfig g_config;
 int g_selectedIndex = 0;
 static int g_mouseScrollDelta = 0;
-
+static int g_lastHoveredIndex = -1;
 bool g_isFadingIn = false;
 
 struct RunningApp {
@@ -64,12 +65,11 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
     return TRUE;
 }
 
-// wrapper
+// Wrapper
 void RefreshRunningApps() {
     g_runningApps.clear();
     EnumWindows(EnumWindowsProc, reinterpret_cast<LPARAM>(&g_runningApps));
 }
-
 
 enum ACCENT_STATE {
     ACCENT_ENABLE_BLURBEHIND = 3,
@@ -91,9 +91,7 @@ struct WINDOWCOMPOSITIONATTRIBDATA {
 
 typedef BOOL(WINAPI* pfnSetWindowCompositionAttribute)(HWND, WINDOWCOMPOSITIONATTRIBDATA*);
 
-
 // Setup
-
 void __stdcall SetupModernBlur(HWND hWnd) {
     auto SetWindowCompositionAttribute = (pfnSetWindowCompositionAttribute)GetProcAddress(
         GetModuleHandleW(L"user32.dll"), "SetWindowCompositionAttribute");
@@ -111,7 +109,12 @@ void __stdcall SetupModernBlur(HWND hWnd) {
     }
 }
 
-// Cards
+// Background Delay Engine
+void AppSwitcher_ResetHoverTimer(HWND hWnd) {
+    KillTimer(hWnd, 1);
+
+    SetTimer(hWnd, 1, 500, NULL);
+}
 
 // Cards
 void DrawCards(HWND hWnd, HDC hdc, const AppConfig& config, const std::vector<RunningApp>& apps, int selectedIndex) {
@@ -133,7 +136,7 @@ void DrawCards(HWND hWnd, HDC hdc, const AppConfig& config, const std::vector<Ru
                           config.appSwitcher.appBox.startX + config.appSwitcher.appBox.width,
                           yPos + config.appSwitcher.appBox.height };
 
-        if (i == selectedIndex) {
+        if ((int)i == selectedIndex) {
             SelectObject(hdc, hSelectBrush);
             SelectObject(hdc, hAccentPen);
         }
@@ -144,7 +147,6 @@ void DrawCards(HWND hWnd, HDC hdc, const AppConfig& config, const std::vector<Ru
 
         RoundRect(hdc, cardRect.left, cardRect.top, cardRect.right, cardRect.bottom, 12, 12);
 
-        // Draw Icon
         if (apps[i].hIcon) {
             int iconSize = 32;
             int iconY = cardRect.top + ((config.appSwitcher.appBox.height - iconSize) / 2);
@@ -170,35 +172,51 @@ void DrawCards(HWND hWnd, HDC hdc, const AppConfig& config, const std::vector<Ru
 }
 
 // Window Procedure
-
 LRESULT CALLBACK AppSwitcher_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
-        case WM_PAINT: {
-            PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hWnd, &ps);
-            DrawCards(hWnd, hdc, g_config, g_runningApps, g_selectedIndex);
-            EndPaint(hWnd, &ps);
-            return 0;
-        }
-        case WM_DESTROY: {
-            PostQuitMessage(0);
-            return 0;
-        }
-        case WM_SETCURSOR: {
-            SetCursor(LoadCursorW(NULL, IDC_ARROW));
-            return TRUE;
-        }
-        case WM_MOUSEWHEEL: {
-            if (isVisible) {
-                g_mouseScrollDelta += GET_WHEEL_DELTA_WPARAM(wParam);
+    case WM_PAINT: {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hWnd, &ps);
+
+        DrawCards(hWnd, hdc, g_config, g_runningApps, g_selectedIndex);
+
+        EndPaint(hWnd, &ps);
+        return 0;
+    }
+    case WM_TIMER: {
+        if (wParam == 1) {
+            KillTimer(hWnd, 1);
+
+            if (isVisible && g_selectedIndex >= 0 && g_selectedIndex < (int)g_runningApps.size()) {
+                g_lastHoveredIndex = g_selectedIndex;
+                HWND target = g_runningApps[g_selectedIndex].hwnd;
+
+                SetWindowPos(target, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
+                SetWindowPos(target, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
             }
-            return 0;
         }
+        return 0;
+    }
+    case WM_DESTROY: {
+        KillTimer(hWnd, 1);
+        PostQuitMessage(0);
+        return 0;
+    }
+    case WM_SETCURSOR: {
+        SetCursor(LoadCursorW(NULL, IDC_ARROW));
+        return TRUE;
+    }
+    case WM_MOUSEWHEEL: {
+        if (isVisible) {
+            g_mouseScrollDelta += GET_WHEEL_DELTA_WPARAM(wParam);
+        }
+        return 0;
+    }
     }
     return DefWindowProcW(hWnd, uMsg, wParam, lParam);
 }
 
-
+// Init
 void AppSwitcher_Init(HINSTANCE hInstance)
 {
     g_config = SettingsManager::Load();
@@ -217,18 +235,17 @@ void AppSwitcher_Init(HINSTANCE hInstance)
     hAppSwitcherWnd = OverlayEngine_Create(hInstance, settings, AppSwitcher_WndProc);
 }
 
+// Visibility
 bool AppSwitcher_IsVisible()
 {
     return isVisible;
 }
-
 
 // Blur
 void FadeWindow(HWND hWnd, bool fadeIn) {
     g_isFadingIn = fadeIn;
     ULONGLONG startTime = GetTickCount64();
 
-    // Calculate duration based on your INI settings
     int safeStep = g_config.appSwitcher.blur.fadeStep;
     if (safeStep <= 0) safeStep = 15;
     float duration = (255.0f / (float)safeStep) * 10.0f;
@@ -243,7 +260,6 @@ void FadeWindow(HWND hWnd, bool fadeIn) {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
-
 
         ULONGLONG elapsed = GetTickCount64() - startTime;
         t = (float)elapsed / duration;
@@ -274,10 +290,12 @@ void FadeWindow(HWND hWnd, bool fadeIn) {
     }
 }
 
+// Show Window
 void AppSwitcher_Show() {
     if (!isVisible) {
         RefreshRunningApps();
         g_selectedIndex = 0;
+        g_lastHoveredIndex = -1;
 
         SetupModernBlur(hAppSwitcherWnd);
 
@@ -292,25 +310,28 @@ void AppSwitcher_Show() {
     }
 }
 
+// Hide Window
 void AppSwitcher_Hide() {
     if (isVisible) {
+        KillTimer(hAppSwitcherWnd, 1); // Safety cancel
         FadeWindow(hAppSwitcherWnd, false);
     }
 }
 
-// keyboard nav
-
+// Interactivity
 int AppSwitcher_GetScrollDelta() {
     int delta = g_mouseScrollDelta;
     g_mouseScrollDelta = 0;
     return delta;
 }
 
+// Selection Nav
 void AppSwitcher_NextApp() {
     if (g_runningApps.empty()) return;
     g_selectedIndex++;
-    if (g_selectedIndex >= g_runningApps.size()) g_selectedIndex = 0;
+    if (g_selectedIndex >= (int)g_runningApps.size()) g_selectedIndex = 0;
 
+    AppSwitcher_ResetHoverTimer(hAppSwitcherWnd);
     InvalidateRect(hAppSwitcherWnd, NULL, FALSE);
 }
 
@@ -319,11 +340,13 @@ void AppSwitcher_PrevApp() {
     g_selectedIndex--;
     if (g_selectedIndex < 0) g_selectedIndex = (int)g_runningApps.size() - 1;
 
+    AppSwitcher_ResetHoverTimer(hAppSwitcherWnd);
     InvalidateRect(hAppSwitcherWnd, NULL, FALSE);
 }
 
+// Context Actions
 void AppSwitcher_Commit() {
-    if (g_runningApps.empty() || g_selectedIndex < 0 || g_selectedIndex >= g_runningApps.size()) return;
+    if (g_runningApps.empty() || g_selectedIndex < 0 || g_selectedIndex >= (int)g_runningApps.size()) return;
 
     HWND target = g_runningApps[g_selectedIndex].hwnd;
     if (IsIconic(target)) {
