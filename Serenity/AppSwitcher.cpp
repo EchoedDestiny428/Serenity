@@ -5,8 +5,6 @@
 #include "SettingsManager.h"
 #include <dwmapi.h>
 #pragma comment(lib, "dwmapi.lib")
-#include <timeapi.h>
-#pragma comment(lib, "winmm.lib")
 
 // Global Variables
 
@@ -15,7 +13,6 @@ static bool isVisible = false;
 AppConfig g_config;
 int g_selectedIndex = 0;
 
-ULONGLONG g_animationStartTime = 0;
 bool g_isFadingIn = false;
 
 struct RunningApp {
@@ -67,29 +64,41 @@ void __stdcall SetupModernBlur(HWND hWnd) {
 // Cards
 
 void DrawCards(HWND hWnd, HDC hdc, const AppConfig& config, const std::vector<RunningApp>& apps, int selectedIndex) {
+    HFONT hFont = CreateFontW(24, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET, OUT_OUTLINE_PRECIS, CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY, VARIABLE_PITCH, L"Segoe UI");
+    HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
+
     HBRUSH hDefaultBrush = CreateSolidBrush(RGB(40, 40, 40));
-    HBRUSH hSelectBrush = CreateSolidBrush(RGB(80, 80, 255));
+    HBRUSH hSelectBrush = CreateSolidBrush(RGB(60, 100, 255));
+    HPEN hNullPen = CreatePen(PS_NULL, 0, RGB(0, 0, 0));
+    HPEN hOldPen = (HPEN)SelectObject(hdc, hNullPen);
 
     for (size_t i = 0; i < apps.size(); ++i) {
         int yPos = config.appSwitcher.appBox.startY +
             (i * (config.appSwitcher.appBox.height + config.appSwitcher.appBox.padding));
 
-        RECT cardRect = {
-            config.appSwitcher.appBox.startX,
-            yPos,
-            config.appSwitcher.appBox.startX + config.appSwitcher.appBox.width,
-            yPos + config.appSwitcher.appBox.height
-        };
+        RECT cardRect = { config.appSwitcher.appBox.startX, yPos,
+                          config.appSwitcher.appBox.startX + config.appSwitcher.appBox.width,
+                          yPos + config.appSwitcher.appBox.height };
 
-        FillRect(hdc, &cardRect, (i == selectedIndex) ? hSelectBrush : hDefaultBrush);
+        SelectObject(hdc, (i == selectedIndex) ? hSelectBrush : hDefaultBrush);
+        RoundRect(hdc, cardRect.left, cardRect.top, cardRect.right, cardRect.bottom, 16, 16);
 
         SetBkMode(hdc, TRANSPARENT);
         SetTextColor(hdc, RGB(255, 255, 255));
-        DrawTextW(hdc, apps[i].title.c_str(), -1, &cardRect, DT_SINGLELINE | DT_VCENTER | DT_CENTER);
+
+        RECT textRect = cardRect;
+        textRect.left += 60;
+        DrawTextW(hdc, apps[i].title.c_str(), -1, &textRect, DT_SINGLELINE | DT_VCENTER | DT_LEFT);
     }
 
+    SelectObject(hdc, hOldFont);
+    SelectObject(hdc, hOldPen);
+    DeleteObject(hFont);
     DeleteObject(hDefaultBrush);
     DeleteObject(hSelectBrush);
+    DeleteObject(hNullPen);
 }
 
 // Window Procedure
@@ -119,12 +128,6 @@ LRESULT CALLBACK AppSwitcher_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
 void AppSwitcher_Init(HINSTANCE hInstance)
 {
     g_config = SettingsManager::Load();
-
-    if (g_runningApps.empty()) { // test
-        g_runningApps.push_back({ nullptr, L"Mozilla Firefox" });
-        g_runningApps.push_back({ nullptr, L"Microsoft Visual Studio" });
-        g_runningApps.push_back({ nullptr, L"Discord" });
-    }
 
     OverlaySettings settings = { 0 };
     settings.className = L"AppSwitcherClass";
