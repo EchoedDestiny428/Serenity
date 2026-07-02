@@ -18,31 +18,52 @@ bool g_isFadingIn = false;
 struct RunningApp {
     HWND hwnd;
     std::wstring title;
+    HICON hIcon;
 };
 std::vector<RunningApp> g_runningApps;
 
 // Get Running Applications
-
 BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
     if (!IsWindowVisible(hwnd)) return TRUE;
+
     int cloaked = 0;
     DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked));
     if (cloaked) return TRUE;
+
     LONG exStyle = GetWindowLongW(hwnd, GWL_EXSTYLE);
     if (exStyle & WS_EX_TOOLWINDOW) return TRUE;
-    int length = GetWindowTextLengthW(hwnd);
-    if (length == 0) return TRUE;
+
+    WCHAR buffer[256];
+    if (GetWindowTextW(hwnd, buffer, 256) == 0) return TRUE;
+    std::wstring title(buffer);
+
     if (hwnd == hAppSwitcherWnd) return TRUE;
-    std::wstring title(length, L'\0');
-    GetWindowTextW(hwnd, &title[0], length + 1);
     if (title == L"Program Manager") return TRUE;
+
+    DWORD_PTR dwResult = 0;
+    HICON hIcon = nullptr;
+
+    if (SendMessageTimeoutW(hwnd, WM_GETICON, ICON_BIG, 0,
+        SMTO_ABORTIFHUNG | SMTO_NORMAL, 20, &dwResult)) {
+        hIcon = (HICON)dwResult;
+    }
+
+    if (!hIcon && SendMessageTimeoutW(hwnd, WM_GETICON, ICON_SMALL, 0,
+        SMTO_ABORTIFHUNG | SMTO_NORMAL, 20, &dwResult)) {
+        hIcon = (HICON)dwResult;
+    }
+
+    if (!hIcon) hIcon = (HICON)GetClassLongPtrW(hwnd, GCLP_HICON);
+    if (!hIcon) hIcon = (HICON)GetClassLongPtrW(hwnd, GCLP_HICONSM);
+    if (!hIcon) hIcon = LoadIcon(NULL, IDI_APPLICATION);
+
     auto* apps = reinterpret_cast<std::vector<RunningApp>*>(lParam);
-    apps->push_back({ hwnd, title });
+    apps->push_back({ hwnd, title, hIcon });
 
     return TRUE;
 }
 
-// Wrapper function to trigger the scrape
+// wrapper
 void RefreshRunningApps() {
     g_runningApps.clear();
     EnumWindows(EnumWindowsProc, reinterpret_cast<LPARAM>(&g_runningApps));
@@ -91,16 +112,17 @@ void __stdcall SetupModernBlur(HWND hWnd) {
 
 // Cards
 
+// Cards
 void DrawCards(HWND hWnd, HDC hdc, const AppConfig& config, const std::vector<RunningApp>& apps, int selectedIndex) {
-    HFONT hFont = CreateFontW(24, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+    HFONT hFont = CreateFontW(22, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_OUTLINE_PRECIS, CLIP_DEFAULT_PRECIS,
         CLEARTYPE_QUALITY, VARIABLE_PITCH, L"Segoe UI");
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
 
-    HBRUSH hDefaultBrush = CreateSolidBrush(RGB(40, 40, 40));
-    HBRUSH hSelectBrush = CreateSolidBrush(RGB(60, 100, 255));
-    HPEN hNullPen = CreatePen(PS_NULL, 0, RGB(0, 0, 0));
-    HPEN hOldPen = (HPEN)SelectObject(hdc, hNullPen);
+    HBRUSH hNormalBrush = CreateSolidBrush(RGB(35, 35, 40));
+    HBRUSH hSelectBrush = CreateSolidBrush(RGB(50, 50, 60));
+    HPEN   hNullPen = CreatePen(PS_NULL, 0, RGB(0, 0, 0));
+    HPEN   hAccentPen = CreatePen(PS_SOLID, 2, RGB(0, 120, 215));
 
     for (size_t i = 0; i < apps.size(); ++i) {
         int yPos = config.appSwitcher.appBox.startY +
@@ -110,23 +132,40 @@ void DrawCards(HWND hWnd, HDC hdc, const AppConfig& config, const std::vector<Ru
                           config.appSwitcher.appBox.startX + config.appSwitcher.appBox.width,
                           yPos + config.appSwitcher.appBox.height };
 
-        SelectObject(hdc, (i == selectedIndex) ? hSelectBrush : hDefaultBrush);
-        RoundRect(hdc, cardRect.left, cardRect.top, cardRect.right, cardRect.bottom, 16, 16);
+        if (i == selectedIndex) {
+            SelectObject(hdc, hSelectBrush);
+            SelectObject(hdc, hAccentPen);
+        }
+        else {
+            SelectObject(hdc, hNormalBrush);
+            SelectObject(hdc, hNullPen);
+        }
+
+        RoundRect(hdc, cardRect.left, cardRect.top, cardRect.right, cardRect.bottom, 12, 12);
+
+        // Draw Icon
+        if (apps[i].hIcon) {
+            int iconSize = 32;
+            int iconY = cardRect.top + ((config.appSwitcher.appBox.height - iconSize) / 2);
+            DrawIconEx(hdc, cardRect.left + 16, iconY, apps[i].hIcon, iconSize, iconSize, 0, NULL, DI_NORMAL);
+        }
 
         SetBkMode(hdc, TRANSPARENT);
-        SetTextColor(hdc, RGB(255, 255, 255));
+        SetTextColor(hdc, RGB(240, 240, 240));
 
         RECT textRect = cardRect;
-        textRect.left += 60;
-        DrawTextW(hdc, apps[i].title.c_str(), -1, &textRect, DT_SINGLELINE | DT_VCENTER | DT_LEFT);
+        textRect.left += 64;
+        textRect.right -= 16;
+
+        DrawTextW(hdc, apps[i].title.c_str(), -1, &textRect, DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_END_ELLIPSIS);
     }
 
     SelectObject(hdc, hOldFont);
-    SelectObject(hdc, hOldPen);
     DeleteObject(hFont);
-    DeleteObject(hDefaultBrush);
+    DeleteObject(hNormalBrush);
     DeleteObject(hSelectBrush);
     DeleteObject(hNullPen);
+    DeleteObject(hAccentPen);
 }
 
 // Window Procedure
