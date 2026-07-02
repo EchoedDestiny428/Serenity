@@ -12,6 +12,7 @@ static HWND hAppSwitcherWnd = nullptr;
 static bool isVisible = false;
 AppConfig g_config;
 int g_selectedIndex = 0;
+static int g_mouseScrollDelta = 0;
 
 bool g_isFadingIn = false;
 
@@ -187,6 +188,12 @@ LRESULT CALLBACK AppSwitcher_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
             SetCursor(LoadCursorW(NULL, IDC_ARROW));
             return TRUE;
         }
+        case WM_MOUSEWHEEL: {
+            if (isVisible) {
+                g_mouseScrollDelta += GET_WHEEL_DELTA_WPARAM(wParam);
+            }
+            return 0;
+        }
     }
     return DefWindowProcW(hWnd, uMsg, wParam, lParam);
 }
@@ -288,5 +295,47 @@ void AppSwitcher_Show() {
 void AppSwitcher_Hide() {
     if (isVisible) {
         FadeWindow(hAppSwitcherWnd, false);
+    }
+}
+
+// keyboard nav
+
+int AppSwitcher_GetScrollDelta() {
+    int delta = g_mouseScrollDelta;
+    g_mouseScrollDelta = 0;
+    return delta;
+}
+
+void AppSwitcher_NextApp() {
+    if (g_runningApps.empty()) return;
+    g_selectedIndex++;
+    if (g_selectedIndex >= g_runningApps.size()) g_selectedIndex = 0;
+
+    InvalidateRect(hAppSwitcherWnd, NULL, FALSE);
+}
+
+void AppSwitcher_PrevApp() {
+    if (g_runningApps.empty()) return;
+    g_selectedIndex--;
+    if (g_selectedIndex < 0) g_selectedIndex = (int)g_runningApps.size() - 1;
+
+    InvalidateRect(hAppSwitcherWnd, NULL, FALSE);
+}
+
+void AppSwitcher_Commit() {
+    if (g_runningApps.empty() || g_selectedIndex < 0 || g_selectedIndex >= g_runningApps.size()) return;
+
+    HWND target = g_runningApps[g_selectedIndex].hwnd;
+    if (IsIconic(target)) {
+        ShowWindowAsync(target, SW_RESTORE);
+    }
+    else {
+        ShowWindowAsync(target, SW_SHOW);
+    }
+    SetForegroundWindow(target);
+
+    if (GetKeyState(VK_CAPITAL) & 0x0001) {
+        keybd_event(VK_CAPITAL, 0x3a, KEYEVENTF_EXTENDEDKEY | 0, 0);
+        keybd_event(VK_CAPITAL, 0x3a, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
     }
 }

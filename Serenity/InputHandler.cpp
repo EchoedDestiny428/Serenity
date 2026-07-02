@@ -3,11 +3,12 @@
 #include "SettingsManager.h"
 
 void HandleInput() {
-
-    // AppSwitcher
-
     static ULONGLONG AppSwitcherHoldStart = 0;
     static AppConfig cfg = SettingsManager::Load();
+
+    static bool wasTabHeld = false;
+    static bool wasUpHeld = false;
+    static bool wasDownHeld = false;
 
     bool isCapsHeld = (GetAsyncKeyState(VK_CAPITAL) & 0x8000) != 0;
 
@@ -17,6 +18,32 @@ void HandleInput() {
         if (!AppSwitcher_IsVisible() && (GetTickCount64() - AppSwitcherHoldStart > (ULONGLONG)cfg.appSwitcher.blur.triggerDelay)) {
             AppSwitcher_Show();
         }
+
+        if (AppSwitcher_IsVisible()) {
+            bool isTabHeld = (GetAsyncKeyState(VK_TAB) & 0x8000) != 0;
+            bool isUpHeld = (GetAsyncKeyState(VK_UP) & 0x8000) != 0;
+            bool isDownHeld = (GetAsyncKeyState(VK_DOWN) & 0x8000) != 0;
+
+            int scrollDelta = AppSwitcher_GetScrollDelta();
+
+            if (scrollDelta > 0) {
+                AppSwitcher_PrevApp();
+            }
+            else if (scrollDelta < 0) {
+                AppSwitcher_NextApp();
+            }
+
+            if ((isTabHeld && !wasTabHeld) || (isDownHeld && !wasDownHeld)) {
+                AppSwitcher_NextApp();
+            }
+            if (isUpHeld && !wasUpHeld) {
+                AppSwitcher_PrevApp();
+            }
+
+            wasTabHeld = isTabHeld;
+            wasUpHeld = isUpHeld;
+            wasDownHeld = isDownHeld;
+        }
     }
     else {
         if (AppSwitcherHoldStart != 0) {
@@ -24,15 +51,17 @@ void HandleInput() {
 
             if (duration > (ULONGLONG)cfg.appSwitcher.blur.triggerDelay) {
                 if (AppSwitcher_IsVisible()) {
-                    AppSwitcher_Hide();
+                    
+                    AppSwitcher_Commit();
 
-                    if (GetKeyState(VK_CAPITAL) & 0x0001) {
-                        keybd_event(VK_CAPITAL, 0x3A, KEYEVENTF_EXTENDEDKEY, 0);
-                        keybd_event(VK_CAPITAL, 0x3A, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
-                    }
+                    AppSwitcher_Hide();
                 }
             }
         }
+
         AppSwitcherHoldStart = 0;
+        wasTabHeld = false;
+        wasUpHeld = false;
+        wasDownHeld = false;
     }
 }
