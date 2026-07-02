@@ -96,17 +96,21 @@ void DrawCards(HWND hWnd, HDC hdc, const AppConfig& config, const std::vector<Ru
 
 LRESULT CALLBACK AppSwitcher_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
-    case WM_PAINT: {
-        PAINTSTRUCT ps;
-        HDC hdc = BeginPaint(hWnd, &ps);
-        DrawCards(hWnd, hdc, g_config, g_runningApps, g_selectedIndex);
-        EndPaint(hWnd, &ps);
-        return 0;
-    }
-    case WM_DESTROY: {
-        PostQuitMessage(0);
-        return 0;
-    }
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hWnd, &ps);
+            DrawCards(hWnd, hdc, g_config, g_runningApps, g_selectedIndex);
+            EndPaint(hWnd, &ps);
+            return 0;
+        }
+        case WM_DESTROY: {
+            PostQuitMessage(0);
+            return 0;
+        }
+        case WM_SETCURSOR: {
+            SetCursor(LoadCursorW(NULL, IDC_ARROW));
+            return TRUE;
+        }
     }
     return DefWindowProcW(hWnd, uMsg, wParam, lParam);
 }
@@ -157,6 +161,13 @@ void FadeWindow(HWND hWnd, bool fadeIn) {
     float t = 0.0f;
 
     while (t < 1.0f) {
+        MSG msg;
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+
+
         ULONGLONG elapsed = GetTickCount64() - startTime;
         t = (float)elapsed / duration;
         if (t > 1.0f) t = 1.0f;
