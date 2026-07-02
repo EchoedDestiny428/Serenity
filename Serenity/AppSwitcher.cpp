@@ -96,64 +96,18 @@ void DrawCards(HWND hWnd, HDC hdc, const AppConfig& config, const std::vector<Ru
 
 LRESULT CALLBACK AppSwitcher_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
-    case WM_TIMER: {
-        if (wParam == 1 && g_animationStartTime != 0) {
-            ULONGLONG currentTime = GetTickCount64();
-            ULONGLONG elapsed = currentTime - g_animationStartTime;
-
-            int safeStep = g_config.appSwitcher.blur.fadeStep;
-            if (safeStep <= 0) safeStep = 15;
-
-            float duration = (255.0f / (float)safeStep) * 10.0f;
-
-            float t = (float)elapsed / duration;
-
-            if (t >= 1.0f) {
-                t = 1.0f;
-                g_animationStartTime = 0;
-                KillTimer(hWnd, 1);
-            }
-
-            float eased = 0.0f;
-            if (g_isFadingIn) {
-                float inv = 1.0f - t;
-                eased = 1.0f - (inv * inv * inv);
-            }
-            else {
-                eased = t * t * t;
-            }
-
-            int alpha = g_isFadingIn ? (int)(eased * 255.0f) : (int)((1.0f - eased) * 255.0f);
-            if (alpha > 255) alpha = 255;
-            if (alpha < 0) alpha = 0;
-
-            SetLayeredWindowAttributes(hWnd, 0, (BYTE)alpha, LWA_ALPHA);
-
-            if (!g_isFadingIn && t >= 1.0f) {
-                ShowWindow(hWnd, SW_HIDE);
-                SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | WS_EX_TRANSPARENT);
-                isVisible = false;
-            }
-        }
+    case WM_PAINT: {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hWnd, &ps);
+        DrawCards(hWnd, hdc, g_config, g_runningApps, g_selectedIndex);
+        EndPaint(hWnd, &ps);
         return 0;
     }
-
-        case WM_PAINT: {
-            PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hWnd, &ps);
-
-            DrawCards(hWnd, hdc, g_config, g_runningApps, g_selectedIndex);
-
-            EndPaint(hWnd, &ps);
-            return 0;
-        }
-
-        case WM_DESTROY: {
-            PostQuitMessage(0);
-            return 0;
-        }
+    case WM_DESTROY: {
+        PostQuitMessage(0);
+        return 0;
     }
-
+    }
     return DefWindowProcW(hWnd, uMsg, wParam, lParam);
 }
 
@@ -190,10 +144,46 @@ bool AppSwitcher_IsVisible()
 
 // Blur
 void FadeWindow(HWND hWnd, bool fadeIn) {
-    g_animationStartTime = GetTickCount64();
     g_isFadingIn = fadeIn;
+    ULONGLONG startTime = GetTickCount64();
 
-    SetTimer(hWnd, 1, 10, NULL);
+    // Calculate duration based on your INI settings
+    int safeStep = g_config.appSwitcher.blur.fadeStep;
+    if (safeStep <= 0) safeStep = 15;
+    float duration = (255.0f / (float)safeStep) * 10.0f;
+
+    SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | WS_EX_LAYERED);
+
+    float t = 0.0f;
+
+    while (t < 1.0f) {
+        ULONGLONG elapsed = GetTickCount64() - startTime;
+        t = (float)elapsed / duration;
+        if (t > 1.0f) t = 1.0f;
+
+        float eased = 0.0f;
+        if (fadeIn) {
+            float inv = 1.0f - t;
+            eased = 1.0f - (inv * inv * inv);
+        }
+        else {
+            eased = t * t * t;
+        }
+
+        int alpha = fadeIn ? (int)(eased * 255.0f) : (int)((1.0f - eased) * 255.0f);
+        if (alpha > 255) alpha = 255;
+        if (alpha < 0) alpha = 0;
+
+        SetLayeredWindowAttributes(hWnd, 0, (BYTE)alpha, LWA_ALPHA);
+
+        DwmFlush();
+    }
+
+    if (!fadeIn) {
+        ShowWindow(hWnd, SW_HIDE);
+        SetWindowLong(hWnd, GWL_EXSTYLE, GetWindowLong(hWnd, GWL_EXSTYLE) | WS_EX_TRANSPARENT);
+        isVisible = false;
+    }
 }
 
 void AppSwitcher_Show() {
