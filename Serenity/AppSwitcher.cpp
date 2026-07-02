@@ -153,7 +153,6 @@ void AppSwitcher_ResetHoverTimer(HWND hWnd) {
     ShowWindow(g_hProxyWnd, SW_HIDE);
 
     int delay = g_config.appSwitcher.blur.hoverDelay;
-    if (delay <= 0) delay = 500;
 
     SetTimer(hWnd, 1, delay, NULL);
 }
