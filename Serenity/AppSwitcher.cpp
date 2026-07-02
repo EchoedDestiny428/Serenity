@@ -50,25 +50,48 @@ BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
     if (hwnd == hAppSwitcherWnd) return TRUE;
     if (title == L"Program Manager") return TRUE;
 
+    std::wstring cleanTitle = title;
+    size_t lastPos = std::wstring::npos;
+    size_t sepLen = 0;
+
+    const wchar_t* separators[] = { L" - ", L" \x2013 ", L" \x2014 ", L" \x2015 ", L" | " };
+
+    for (const wchar_t* sep : separators) {
+        size_t pos = cleanTitle.rfind(sep);
+        if (pos != std::wstring::npos) {
+            if (lastPos == std::wstring::npos || pos > lastPos) {
+                lastPos = pos;
+                sepLen = wcslen(sep);
+            }
+        }
+    }
+
+    if (lastPos != std::wstring::npos) {
+        cleanTitle = cleanTitle.substr(lastPos + sepLen);
+    }
+
+    cleanTitle.erase(0, cleanTitle.find_first_not_of(L" \t\r\n"));
+    if (!cleanTitle.empty()) {
+        cleanTitle.erase(cleanTitle.find_last_not_of(L" \t\r\n") + 1);
+    }
+
+    if (cleanTitle.empty()) cleanTitle = title;
+
     DWORD_PTR dwResult = 0;
     HICON hIcon = nullptr;
 
-    if (SendMessageTimeoutW(hwnd, WM_GETICON, ICON_BIG, 0,
-        SMTO_ABORTIFHUNG | SMTO_NORMAL, 20, &dwResult)) {
+    if (SendMessageTimeoutW(hwnd, WM_GETICON, ICON_BIG, 0, SMTO_ABORTIFHUNG | SMTO_NORMAL, 20, &dwResult)) {
         hIcon = (HICON)dwResult;
     }
-
-    if (!hIcon && SendMessageTimeoutW(hwnd, WM_GETICON, ICON_SMALL, 0,
-        SMTO_ABORTIFHUNG | SMTO_NORMAL, 20, &dwResult)) {
+    if (!hIcon && SendMessageTimeoutW(hwnd, WM_GETICON, ICON_SMALL, 0, SMTO_ABORTIFHUNG | SMTO_NORMAL, 20, &dwResult)) {
         hIcon = (HICON)dwResult;
     }
-
     if (!hIcon) hIcon = (HICON)GetClassLongPtrW(hwnd, GCLP_HICON);
     if (!hIcon) hIcon = (HICON)GetClassLongPtrW(hwnd, GCLP_HICONSM);
     if (!hIcon) hIcon = LoadIcon(NULL, IDI_APPLICATION);
 
     auto* apps = reinterpret_cast<std::vector<RunningApp>*>(lParam);
-    apps->push_back({ hwnd, title, hIcon });
+    apps->push_back({ hwnd, cleanTitle, hIcon });
 
     return TRUE;
 }
