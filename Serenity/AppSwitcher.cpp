@@ -17,6 +17,11 @@ static int g_mouseScrollDelta = 0;
 static int g_lastHoveredIndex = -1;
 bool g_isFadingIn = false;
 
+static HWND g_hProxyWnd = nullptr;
+static HTHUMBNAIL g_hThumbFade = nullptr;
+static ULONGLONG g_bgFadeStart = 0;
+static HWND g_pendingBgHwnd = nullptr;
+
 struct RunningApp {
     HWND hwnd;
     std::wstring title;
@@ -180,6 +185,32 @@ LRESULT CALLBACK AppSwitcher_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);
 
+        if (g_bgFadeStart != 0 && g_hThumbFade) {
+            float t = (float)(GetTickCount64() - g_bgFadeStart) / 150.0f;
+
+            if (g_bgFadeStart != 0 && g_hThumbFade) {
+                float t = (float)(GetTickCount64() - g_bgFadeStart) / 150.0f;
+
+                if (t >= 1.0f) {
+                    SetWindowPos(g_pendingBgHwnd, hWnd, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
+
+                    DwmUnregisterThumbnail(g_hThumbFade);
+                    g_hThumbFade = nullptr;
+                    g_bgFadeStart = 0;
+                    g_lastHoveredIndex = g_selectedIndex;
+
+                    ShowWindow(g_hProxyWnd, SW_HIDE);
+                }
+                else {
+                    DWM_THUMBNAIL_PROPERTIES props = { 0 };
+                    props.dwFlags = DWM_TNP_OPACITY;
+                    props.opacity = (BYTE)(t * 255.0f);
+                    DwmUpdateThumbnailProperties(g_hThumbFade, &props);
+                    InvalidateRect(hWnd, NULL, FALSE);
+                }
+            }
+        }
+
         DrawCards(hWnd, hdc, g_config, g_runningApps, g_selectedIndex);
 
         EndPaint(hWnd, &ps);
@@ -190,17 +221,36 @@ LRESULT CALLBACK AppSwitcher_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
             KillTimer(hWnd, 1);
 
             if (isVisible && g_selectedIndex >= 0 && g_selectedIndex < (int)g_runningApps.size()) {
-                g_lastHoveredIndex = g_selectedIndex;
-                HWND target = g_runningApps[g_selectedIndex].hwnd;
+                if (g_lastHoveredIndex == g_selectedIndex) return 0;
 
-                SetWindowPos(target, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
-                SetWindowPos(target, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
+                g_pendingBgHwnd = g_runningApps[g_selectedIndex].hwnd;
+
+                if (g_hThumbFade) {
+                    DwmUnregisterThumbnail(g_hThumbFade);
+                    g_hThumbFade = nullptr;
+                }
+
+                SetWindowPos(g_hProxyWnd, hWnd, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+
+                if (SUCCEEDED(DwmRegisterThumbnail(g_hProxyWnd, g_pendingBgHwnd, &g_hThumbFade))) {
+                    DWM_THUMBNAIL_PROPERTIES props = { 0 };
+                    props.dwFlags = DWM_TNP_RECTDESTINATION | DWM_TNP_VISIBLE | DWM_TNP_OPACITY;
+                    GetClientRect(g_hProxyWnd, &props.rcDestination);
+                    props.fVisible = TRUE;
+                    props.opacity = 0;
+                    DwmUpdateThumbnailProperties(g_hThumbFade, &props);
+
+                    g_bgFadeStart = GetTickCount64();
+                    InvalidateRect(hWnd, NULL, FALSE);
+                }
             }
         }
         return 0;
     }
     case WM_DESTROY: {
         KillTimer(hWnd, 1);
+        if (g_hThumbFade) DwmUnregisterThumbnail(g_hThumbFade);
+        if (g_hProxyWnd) DestroyWindow(g_hProxyWnd);
         PostQuitMessage(0);
         return 0;
     }
@@ -233,6 +283,21 @@ void AppSwitcher_Init(HINSTANCE hInstance)
     settings.opacity = 255;
 
     settings.styleCallback = SetupModernBlur;
+
+    WNDCLASSEXW proxyWc = { sizeof(WNDCLASSEXW) };
+    proxyWc.lpfnWndProc = DefWindowProcW;
+    proxyWc.hInstance = hInstance;
+    proxyWc.lpszClassName = L"AppSwitcherProxyClass";
+    proxyWc.hbrBackground = CreateSolidBrush(RGB(1, 1, 1));
+    RegisterClassExW(&proxyWc);
+
+    g_hProxyWnd = CreateWindowExW(
+        WS_EX_TOOLWINDOW | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE,
+        L"AppSwitcherProxyClass", L"", WS_POPUP,
+        0, 0, GetSystemMetrics(SM_CXSCREEN), GetSystemMetrics(SM_CYSCREEN),
+        nullptr, nullptr, hInstance, nullptr
+    );
+    SetLayeredWindowAttributes(g_hProxyWnd, RGB(1, 1, 1), 0, LWA_COLORKEY);
 
     hAppSwitcherWnd = OverlayEngine_Create(hInstance, settings, AppSwitcher_WndProc);
 }
