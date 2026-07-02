@@ -22,6 +22,8 @@ static HTHUMBNAIL g_hThumbFade = nullptr;
 static ULONGLONG g_bgFadeStart = 0;
 static HWND g_pendingBgHwnd = nullptr;
 
+static bool g_bgSwapTriggered = false;
+
 struct RunningApp {
     HWND hwnd;
     std::wstring title;
@@ -117,8 +119,17 @@ void __stdcall SetupModernBlur(HWND hWnd) {
 // Background Delay Engine
 void AppSwitcher_ResetHoverTimer(HWND hWnd) {
     KillTimer(hWnd, 1);
+    KillTimer(hWnd, 2);
+
+    if (g_hThumbFade) {
+        DwmUnregisterThumbnail(g_hThumbFade);
+        g_hThumbFade = nullptr;
+    }
+    g_bgFadeStart = 0;
+    ShowWindow(g_hProxyWnd, SW_HIDE);
 
     int delay = g_config.appSwitcher.blur.hoverDelay;
+    if (delay <= 0) delay = 500;
 
     SetTimer(hWnd, 1, delay, NULL);
 }
@@ -181,89 +192,94 @@ void DrawCards(HWND hWnd, HDC hdc, const AppConfig& config, const std::vector<Ru
 // Window Procedure
 LRESULT CALLBACK AppSwitcher_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
     switch (uMsg) {
-    case WM_PAINT: {
-        PAINTSTRUCT ps;
-        HDC hdc = BeginPaint(hWnd, &ps);
+        case WM_PAINT: {
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hWnd, &ps);
 
-        if (g_bgFadeStart != 0 && g_hThumbFade) {
-            float t = (float)(GetTickCount64() - g_bgFadeStart) / 150.0f;
+            DrawCards(hWnd, hdc, g_config, g_runningApps, g_selectedIndex);
 
-            if (g_bgFadeStart != 0 && g_hThumbFade) {
-                float t = (float)(GetTickCount64() - g_bgFadeStart) / 150.0f;
+            EndPaint(hWnd, &ps);
+            return 0;
+        }
+        case WM_TIMER: {
+            if (wParam == 1) { // --- HOVER DELAY TRIGGERED ---
+                KillTimer(hWnd, 1);
 
-                if (t >= 1.0f) {
-                    SetWindowPos(g_pendingBgHwnd, hWnd, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
+                if (isVisible && g_selectedIndex >= 0 && g_selectedIndex < (int)g_runningApps.size()) {
+                    if (g_lastHoveredIndex == g_selectedIndex) return 0;
 
-                    DwmUnregisterThumbnail(g_hThumbFade);
-                    g_hThumbFade = nullptr;
-                    g_bgFadeStart = 0;
-                    g_lastHoveredIndex = g_selectedIndex;
+                    g_pendingBgHwnd = g_runningApps[g_selectedIndex].hwnd;
 
-                    ShowWindow(g_hProxyWnd, SW_HIDE);
+                    SetWindowPos(g_hProxyWnd, hWnd, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+
+                    if (SUCCEEDED(DwmRegisterThumbnail(g_hProxyWnd, g_pendingBgHwnd, &g_hThumbFade))) {
+                        DWM_THUMBNAIL_PROPERTIES props = { 0 };
+                        props.dwFlags = DWM_TNP_RECTDESTINATION | DWM_TNP_VISIBLE | DWM_TNP_OPACITY;
+                        GetClientRect(g_hProxyWnd, &props.rcDestination);
+                        props.fVisible = TRUE;
+                        props.opacity = 0;
+                        DwmUpdateThumbnailProperties(g_hThumbFade, &props);
+
+                        g_bgFadeStart = GetTickCount64();
+                        g_bgSwapTriggered = false;
+
+                        SetTimer(hWnd, 2, 16, NULL);
+                    }
+                }
+            }
+            else if (wParam == 2) {
+                if (g_bgFadeStart != 0 && g_hThumbFade) {
+                    ULONGLONG elapsed = GetTickCount64() - g_bgFadeStart;
+                    float t = (float)elapsed / 150.0f;
+
+                    if (t >= 1.0f && !g_bgSwapTriggered) {
+                        SetWindowPos(g_pendingBgHwnd, hWnd, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
+                        g_bgSwapTriggered = true;
+
+                        DWM_THUMBNAIL_PROPERTIES props = { 0 };
+                        props.dwFlags = DWM_TNP_OPACITY;
+                        props.opacity = 255;
+                        DwmUpdateThumbnailProperties(g_hThumbFade, &props);
+                    }
+                    else if (g_bgSwapTriggered && elapsed > 250) {
+                        DwmUnregisterThumbnail(g_hThumbFade);
+                        g_hThumbFade = nullptr;
+                        g_bgFadeStart = 0;
+                        g_lastHoveredIndex = g_selectedIndex;
+                        ShowWindow(g_hProxyWnd, SW_HIDE);
+
+                        KillTimer(hWnd, 2);
+                    }
+                    else if (!g_bgSwapTriggered) {
+                        DWM_THUMBNAIL_PROPERTIES props = { 0 };
+                        props.dwFlags = DWM_TNP_OPACITY;
+                        props.opacity = (BYTE)(t * 255.0f);
+                        DwmUpdateThumbnailProperties(g_hThumbFade, &props);
+                    }
                 }
                 else {
-                    DWM_THUMBNAIL_PROPERTIES props = { 0 };
-                    props.dwFlags = DWM_TNP_OPACITY;
-                    props.opacity = (BYTE)(t * 255.0f);
-                    DwmUpdateThumbnailProperties(g_hThumbFade, &props);
-                    InvalidateRect(hWnd, NULL, FALSE);
+                    KillTimer(hWnd, 2);
                 }
             }
+            return 0;
         }
-
-        DrawCards(hWnd, hdc, g_config, g_runningApps, g_selectedIndex);
-
-        EndPaint(hWnd, &ps);
-        return 0;
-    }
-    case WM_TIMER: {
-        if (wParam == 1) {
+        case WM_DESTROY: {
             KillTimer(hWnd, 1);
-
-            if (isVisible && g_selectedIndex >= 0 && g_selectedIndex < (int)g_runningApps.size()) {
-                if (g_lastHoveredIndex == g_selectedIndex) return 0;
-
-                g_pendingBgHwnd = g_runningApps[g_selectedIndex].hwnd;
-
-                if (g_hThumbFade) {
-                    DwmUnregisterThumbnail(g_hThumbFade);
-                    g_hThumbFade = nullptr;
-                }
-
-                SetWindowPos(g_hProxyWnd, hWnd, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
-
-                if (SUCCEEDED(DwmRegisterThumbnail(g_hProxyWnd, g_pendingBgHwnd, &g_hThumbFade))) {
-                    DWM_THUMBNAIL_PROPERTIES props = { 0 };
-                    props.dwFlags = DWM_TNP_RECTDESTINATION | DWM_TNP_VISIBLE | DWM_TNP_OPACITY;
-                    GetClientRect(g_hProxyWnd, &props.rcDestination);
-                    props.fVisible = TRUE;
-                    props.opacity = 0;
-                    DwmUpdateThumbnailProperties(g_hThumbFade, &props);
-
-                    g_bgFadeStart = GetTickCount64();
-                    InvalidateRect(hWnd, NULL, FALSE);
-                }
+            if (g_hThumbFade) DwmUnregisterThumbnail(g_hThumbFade);
+            if (g_hProxyWnd) DestroyWindow(g_hProxyWnd);
+            PostQuitMessage(0);
+            return 0;
+        }
+        case WM_SETCURSOR: {
+            SetCursor(LoadCursorW(NULL, IDC_ARROW));
+            return TRUE;
+        }
+        case WM_MOUSEWHEEL: {
+            if (isVisible) {
+                g_mouseScrollDelta += GET_WHEEL_DELTA_WPARAM(wParam);
             }
+            return 0;
         }
-        return 0;
-    }
-    case WM_DESTROY: {
-        KillTimer(hWnd, 1);
-        if (g_hThumbFade) DwmUnregisterThumbnail(g_hThumbFade);
-        if (g_hProxyWnd) DestroyWindow(g_hProxyWnd);
-        PostQuitMessage(0);
-        return 0;
-    }
-    case WM_SETCURSOR: {
-        SetCursor(LoadCursorW(NULL, IDC_ARROW));
-        return TRUE;
-    }
-    case WM_MOUSEWHEEL: {
-        if (isVisible) {
-            g_mouseScrollDelta += GET_WHEEL_DELTA_WPARAM(wParam);
-        }
-        return 0;
-    }
     }
     return DefWindowProcW(hWnd, uMsg, wParam, lParam);
 }
