@@ -7,6 +7,7 @@
 #pragma comment(lib, "dwmapi.lib")
 #pragma comment(lib, "msimg32.lib")
 
+
 // Global Variables
 
 static HWND hAppSwitcherWnd = nullptr;
@@ -134,59 +135,78 @@ void AppSwitcher_ResetHoverTimer(HWND hWnd) {
     SetTimer(hWnd, 1, delay, NULL);
 }
 
-// Cards
+// Cards 
 void DrawCards(HWND hWnd, HDC hdc, const AppConfig& config, const std::vector<RunningApp>& apps, int selectedIndex) {
-    HFONT hFont = CreateFontW(22, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+    if (apps.empty()) return;
+
+    int screenW = GetSystemMetrics(SM_CXSCREEN);
+    int screenH = GetSystemMetrics(SM_CYSCREEN);
+
+    int cardW = 150;
+    int cardH = 150;
+    int gap = 24;
+    int maxCols = 7;
+
+    int numApps = (int)apps.size();
+    int cols = (numApps < maxCols) ? numApps : maxCols;
+    int rows = (numApps + cols - 1) / cols;
+
+    int totalH = (rows * cardH) + ((rows - 1) * gap);
+    int startY = (screenH - totalH) / 2;
+
+    HFONT hFont = CreateFontW(16, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_OUTLINE_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, VARIABLE_PITCH, L"Segoe UI");
+        CLEARTYPE_QUALITY, VARIABLE_PITCH, L"Segoe UI Variable Display");
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
 
-    HBRUSH hNormalBrush = CreateSolidBrush(RGB(35, 35, 40));
-    HBRUSH hSelectBrush = CreateSolidBrush(RGB(50, 50, 60));
-    HPEN   hNullPen = CreatePen(PS_NULL, 0, RGB(0, 0, 0));
-    HPEN   hAccentPen = CreatePen(PS_SOLID, 2, RGB(0, 120, 215));
+    HBRUSH hNormalBrush = CreateSolidBrush(RGB(30, 30, 46));
+    HBRUSH hSelectBrush = CreateSolidBrush(RGB(49, 50, 68));
 
-    for (size_t i = 0; i < apps.size(); ++i) {
-        int yPos = config.appSwitcher.appBox.startY +
-            (i * (config.appSwitcher.appBox.height + config.appSwitcher.appBox.padding));
+    HPEN hNormalPen = CreatePen(PS_INSIDEFRAME, 2, RGB(45, 45, 65));
+    HPEN hAccentPen = CreatePen(PS_INSIDEFRAME, 2, RGB(137, 180, 250));
 
-        RECT cardRect = { config.appSwitcher.appBox.startX, yPos,
-                          config.appSwitcher.appBox.startX + config.appSwitcher.appBox.width,
-                          yPos + config.appSwitcher.appBox.height };
+    SetBkMode(hdc, TRANSPARENT);
 
-        if ((int)i == selectedIndex) {
+    for (int i = 0; i < numApps; ++i) {
+        int row = i / cols;
+        int col = i % cols;
+
+        int appsInThisRow = (row == rows - 1) ? (numApps - (row * cols)) : cols;
+        int rowWidth = (appsInThisRow * cardW) + ((appsInThisRow - 1) * gap);
+        int rowStartX = (screenW - rowWidth) / 2;
+
+        int xPos = rowStartX + (col * (cardW + gap));
+        int yPos = startY + (row * (cardH + gap));
+        RECT cardRect = { xPos, yPos, xPos + cardW, yPos + cardH };
+
+        if (i == selectedIndex) {
             SelectObject(hdc, hSelectBrush);
             SelectObject(hdc, hAccentPen);
         }
         else {
             SelectObject(hdc, hNormalBrush);
-            SelectObject(hdc, hNullPen);
+            SelectObject(hdc, hNormalPen);
         }
 
-        RoundRect(hdc, cardRect.left, cardRect.top, cardRect.right, cardRect.bottom, 12, 12);
+        RoundRect(hdc, cardRect.left, cardRect.top, cardRect.right, cardRect.bottom, 16, 16);
 
         if (apps[i].hIcon) {
-            int iconSize = 32;
-            int iconY = cardRect.top + ((config.appSwitcher.appBox.height - iconSize) / 2);
-            DrawIconEx(hdc, cardRect.left + 16, iconY, apps[i].hIcon, iconSize, iconSize, 0, NULL, DI_NORMAL);
+            int iconSize = 48;
+            DrawIconEx(hdc, cardRect.left + (cardW - iconSize) / 2, cardRect.top + 26, apps[i].hIcon, iconSize, iconSize, 0, NULL, DI_NORMAL);
         }
 
-        SetBkMode(hdc, TRANSPARENT);
-        SetTextColor(hdc, RGB(240, 240, 240));
+        if (i == selectedIndex) SetTextColor(hdc, RGB(205, 214, 244));
+        else SetTextColor(hdc, RGB(166, 173, 200));
 
         RECT textRect = cardRect;
-        textRect.left += 64;
-        textRect.right -= 16;
-
-        DrawTextW(hdc, apps[i].title.c_str(), -1, &textRect, DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_END_ELLIPSIS);
+        textRect.top += 88; textRect.bottom -= 12; textRect.left += 12; textRect.right -= 12;
+        DrawTextW(hdc, apps[i].title.c_str(), -1, &textRect, DT_CENTER | DT_WORDBREAK | DT_END_ELLIPSIS | DT_NOPREFIX);
     }
 
     SelectObject(hdc, hOldFont);
     DeleteObject(hFont);
-    DeleteObject(hNormalBrush);
-    DeleteObject(hSelectBrush);
-    DeleteObject(hNullPen);
-    DeleteObject(hAccentPen);
+    DeleteObject(hNormalBrush); DeleteObject(hSelectBrush);
+    DeleteObject(hNormalPen); DeleteObject(hAccentPen);
 }
 
 // Window Procedure
@@ -267,6 +287,7 @@ LRESULT CALLBACK AppSwitcher_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
             KillTimer(hWnd, 1);
             if (g_hThumbFade) DwmUnregisterThumbnail(g_hThumbFade);
             if (g_hProxyWnd) DestroyWindow(g_hProxyWnd);
+
             PostQuitMessage(0);
             return 0;
         }
