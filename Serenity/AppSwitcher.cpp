@@ -113,7 +113,9 @@ void __stdcall SetupModernBlur(HWND hWnd) {
 void AppSwitcher_ResetHoverTimer(HWND hWnd) {
     KillTimer(hWnd, 1);
 
-    SetTimer(hWnd, 1, 500, NULL);
+    int delay = g_config.appSwitcher.blur.hoverDelay;
+
+    SetTimer(hWnd, 1, delay, NULL);
 }
 
 // Cards

@@ -8,6 +8,7 @@ struct AppBox {
 struct Blur {
 	int triggerDelay;
 	int fadeStep;
+	int hoverDelay;
 };
 
 struct AppSwitcher {

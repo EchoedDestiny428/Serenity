@@ -17,6 +17,7 @@ AppConfig SettingsManager::Load() {
 
     cfg.appSwitcher.blur.triggerDelay = GetPrivateProfileIntW(L"AppSwitcher", L"TriggerDelay", 100, path.c_str());
     cfg.appSwitcher.blur.fadeStep     = GetPrivateProfileIntW(L"AppSwitcher", L"FadeStep", 15, path.c_str());
+	cfg.appSwitcher.blur.hoverDelay = GetPrivateProfileIntW(L"AppSwitcher", L"HoverDelay", 500, path.c_str());
 
     return cfg;
 }
