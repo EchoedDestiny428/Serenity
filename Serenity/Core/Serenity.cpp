@@ -4,6 +4,7 @@
 #include "Subsystems/Windowing/OverlayEngine.h"
 #include "Subsystems/Interface/AppSwitcher/AppSwitcher.h"
 #include "Subsystems/Input/InputHandler.h"
+#include "Subsystems/Interface/Taskbar/Taskbar.h"
 
 #include <shellapi.h> 
 
@@ -117,6 +118,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    // Initialize Components
    AppSwitcher_Init(hInstance);
+   Taskbar_Init(hInstance);
+   Taskbar_Show();
 
    return TRUE;
 }
