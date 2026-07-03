@@ -3,6 +3,7 @@
 #include "Core/SettingsManager.h"
 
 void HandleInput() {
+
     static ULONGLONG AppSwitcherHoldStart = 0;
     static AppConfig cfg = SettingsManager::Load();
 
@@ -10,12 +11,18 @@ void HandleInput() {
     static bool wasUpHeld = false;
     static bool wasDownHeld = false;
 
+    static int tickCount = 0;
+    if (tickCount++ % 100 == 0) {
+    }
+
     bool isCapsHeld = (GetAsyncKeyState(VK_CAPITAL) & 0x8000) != 0;
 
     if (isCapsHeld) {
         if (AppSwitcherHoldStart == 0) AppSwitcherHoldStart = GetTickCount64();
 
+
         if (!AppSwitcher_IsVisible() && (GetTickCount64() - AppSwitcherHoldStart > (ULONGLONG)cfg.appSwitcher.blur.triggerDelay)) {
+            
             AppSwitcher_Show();
         }
 

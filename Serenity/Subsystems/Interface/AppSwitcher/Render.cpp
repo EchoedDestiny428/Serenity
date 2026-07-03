@@ -1,9 +1,45 @@
 #include "Render.h"
 #include "State.h"
+#include <dwrite.h>
 
-// Cards 
-void DrawCards(HWND hWnd, HDC hdc, const AppConfig& config, const std::vector<RunningApp>& apps, int selectedIndex) {
+#pragma comment(lib, "dwrite.lib")
+
+static ID2D1SolidColorBrush* pNormalBrush = nullptr;
+static ID2D1SolidColorBrush* pSelectBrush = nullptr;
+static ID2D1SolidColorBrush* pNormalBorder = nullptr;
+static ID2D1SolidColorBrush* pAccentBorder = nullptr;
+static ID2D1SolidColorBrush* pTextNormal = nullptr;
+static ID2D1SolidColorBrush* pTextSelect = nullptr;
+
+static IDWriteFactory* pDWriteFactory = nullptr;
+static IDWriteTextFormat* pTextFormat = nullptr;
+
+void EnsureResources(ID2D1HwndRenderTarget* target) {
+    if (!pNormalBrush)  target->CreateSolidColorBrush(D2D1::ColorF(0x1E1E2E), &pNormalBrush);
+    if (!pSelectBrush)  target->CreateSolidColorBrush(D2D1::ColorF(0x313244), &pSelectBrush);
+    if (!pNormalBorder) target->CreateSolidColorBrush(D2D1::ColorF(0x2D2D41), &pNormalBorder);
+    if (!pAccentBorder) target->CreateSolidColorBrush(D2D1::ColorF(0x89B4FA), &pAccentBorder);
+    if (!pTextNormal)   target->CreateSolidColorBrush(D2D1::ColorF(0xA6ADC8), &pTextNormal);
+    if (!pTextSelect)   target->CreateSolidColorBrush(D2D1::ColorF(0xCDD6F4), &pTextSelect);
+
+    if (!pDWriteFactory) {
+        DWriteCreateFactory(DWRITE_FACTORY_TYPE_SHARED, __uuidof(IDWriteFactory), reinterpret_cast<IUnknown**>(&pDWriteFactory));
+        
+        pDWriteFactory->CreateTextFormat(
+            L"Segoe UI Variable Display", NULL, 
+            DWRITE_FONT_WEIGHT_SEMI_BOLD, DWRITE_FONT_STYLE_NORMAL, DWRITE_FONT_STRETCH_NORMAL, 
+            16.0f, L"en-us", &pTextFormat
+        );
+        pTextFormat->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
+        pTextFormat->SetWordWrapping(DWRITE_WORD_WRAPPING_WRAP);
+    }
+}
+
+// cards
+void DrawCards(ID2D1HwndRenderTarget* target, const AppConfig& config, const std::vector<RunningApp>& apps, int selectedIndex) {
     if (apps.empty()) return;
+
+    EnsureResources(target);
 
     int screenW = GetSystemMetrics(SM_CXSCREEN);
     int screenH = GetSystemMetrics(SM_CYSCREEN);
@@ -20,19 +56,6 @@ void DrawCards(HWND hWnd, HDC hdc, const AppConfig& config, const std::vector<Ru
     int totalH = (rows * cardH) + ((rows - 1) * gap);
     int startY = (screenH - totalH) / 2;
 
-    HFONT hFont = CreateFontW(16, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_OUTLINE_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, VARIABLE_PITCH, L"Segoe UI Variable Display");
-    HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
-
-    HBRUSH hNormalBrush = CreateSolidBrush(RGB(30, 30, 46));
-    HBRUSH hSelectBrush = CreateSolidBrush(RGB(49, 50, 68));
-
-    HPEN hNormalPen = CreatePen(PS_INSIDEFRAME, 2, RGB(45, 45, 65));
-    HPEN hAccentPen = CreatePen(PS_INSIDEFRAME, 2, RGB(137, 180, 250));
-
-    SetBkMode(hdc, TRANSPARENT);
-
     for (int i = 0; i < numApps; ++i) {
         int row = i / cols;
         int col = i % cols;
@@ -43,34 +66,48 @@ void DrawCards(HWND hWnd, HDC hdc, const AppConfig& config, const std::vector<Ru
 
         int xPos = rowStartX + (col * (cardW + gap));
         int yPos = startY + (row * (cardH + gap));
-        RECT cardRect = { xPos, yPos, xPos + cardW, yPos + cardH };
 
-        if (i == selectedIndex) {
-            SelectObject(hdc, hSelectBrush);
-            SelectObject(hdc, hAccentPen);
-        }
-        else {
-            SelectObject(hdc, hNormalBrush);
-            SelectObject(hdc, hNormalPen);
-        }
+        // Create the Rounded Rect geometry
+        D2D1_ROUNDED_RECT rRect = D2D1::RoundedRect(
+            D2D1::RectF((float)xPos, (float)yPos, (float)(xPos + cardW), (float)(yPos + cardH)),
+            16.0f, 16.0f
+        );
 
-        RoundRect(hdc, cardRect.left, cardRect.top, cardRect.right, cardRect.bottom, 16, 16);
+        // 1. Draw Background
+        target->FillRoundedRectangle(rRect, (i == selectedIndex) ? pSelectBrush : pNormalBrush);
+        
+        // 2. Draw Border (2px width)
+        target->DrawRoundedRectangle(rRect, (i == selectedIndex) ? pAccentBorder : pNormalBorder, 2.0f);
 
+        // 3. Draw Icon (GDI Interop Bridge)
         if (apps[i].hIcon) {
-            int iconSize = 48;
-            DrawIconEx(hdc, cardRect.left + (cardW - iconSize) / 2, cardRect.top + 26, apps[i].hIcon, iconSize, iconSize, 0, NULL, DI_NORMAL);
+            ID2D1GdiInteropRenderTarget* pGdiInterop = nullptr;
+            // Ask D2D for permission to draw using GDI temporarily
+            if (SUCCEEDED(target->QueryInterface(__uuidof(ID2D1GdiInteropRenderTarget), (void**)&pGdiInterop))) {
+                HDC hdc = nullptr;
+                if (SUCCEEDED(pGdiInterop->GetDC(D2D1_DC_INITIALIZE_MODE_COPY, &hdc))) {
+                    int iconSize = 48;
+                    DrawIconEx(hdc, xPos + (cardW - iconSize) / 2, yPos + 26, apps[i].hIcon, iconSize, iconSize, 0, NULL, DI_NORMAL);
+                    pGdiInterop->ReleaseDC(nullptr);
+                }
+                pGdiInterop->Release();
+            }
         }
 
-        if (i == selectedIndex) SetTextColor(hdc, RGB(205, 214, 244));
-        else SetTextColor(hdc, RGB(166, 173, 200));
+        // 4. Draw Text
+        D2D1_RECT_F textRect = D2D1::RectF(
+            (float)(xPos + 12), 
+            (float)(yPos + 88), 
+            (float)(xPos + cardW - 12), 
+            (float)(yPos + cardH - 12)
+        );
 
-        RECT textRect = cardRect;
-        textRect.top += 88; textRect.bottom -= 12; textRect.left += 12; textRect.right -= 12;
-        DrawTextW(hdc, apps[i].title.c_str(), -1, &textRect, DT_CENTER | DT_WORDBREAK | DT_END_ELLIPSIS | DT_NOPREFIX);
+        target->DrawText(
+            apps[i].title.c_str(), 
+            (UINT32)apps[i].title.length(), 
+            pTextFormat, 
+            textRect, 
+            (i == selectedIndex) ? pTextSelect : pTextNormal
+        );
     }
-
-    SelectObject(hdc, hOldFont);
-    DeleteObject(hFont);
-    DeleteObject(hNormalBrush); DeleteObject(hSelectBrush);
-    DeleteObject(hNormalPen); DeleteObject(hAccentPen);
 }

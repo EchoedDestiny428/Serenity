@@ -2,6 +2,7 @@
 #include "Render.h"
 #include "Logic.h"
 #include "State.h"
+#include "Graphics/GraphicsEngine.h"
 
 #include "Subsystems/Windowing/OverlayEngine.h"
 #include <vector>
@@ -57,9 +58,15 @@ LRESULT CALLBACK AppSwitcher_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
     switch (uMsg) {
         case WM_PAINT: {
             PAINTSTRUCT ps;
-            HDC hdc = BeginPaint(hWnd, &ps);
+            BeginPaint(hWnd, &ps);
 
-            DrawCards(hWnd, hdc, g_config, g_runningApps, g_selectedIndex);
+            auto target = Graphics::GetRenderTarget();
+            if (target) {
+                target->BeginDraw();
+                target->Clear(D2D1::ColorF(0, 0, 0, 0));
+                DrawCards(target, g_config, g_runningApps, g_selectedIndex);
+                target->EndDraw();
+            }
 
             EndPaint(hWnd, &ps);
             return 0;
@@ -237,6 +244,8 @@ void AppSwitcher_Show() {
         RefreshRunningApps();
         g_selectedIndex = 0;
         g_lastHoveredIndex = -1;
+
+        Graphics::Initialize(hAppSwitcherWnd);
 
         SetupModernBlur(hAppSwitcherWnd);
 
