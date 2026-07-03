@@ -1,4 +1,8 @@
 #include "AppSwitcher.h"
+#include "Render.h"
+#include "Logic.h"
+#include "State.h"
+
 #include "Subsystems/Windowing/OverlayEngine.h"
 #include <vector>
 #include <string>
@@ -8,99 +12,6 @@
 #pragma comment(lib, "msimg32.lib")
 
 
-// Global Variables
-
-static HWND hAppSwitcherWnd = nullptr;
-static bool isVisible = false;
-AppConfig g_config;
-int g_selectedIndex = 0;
-static int g_mouseScrollDelta = 0;
-static int g_lastHoveredIndex = -1;
-bool g_isFadingIn = false;
-
-static HWND g_hProxyWnd = nullptr;
-static HTHUMBNAIL g_hThumbFade = nullptr;
-static ULONGLONG g_bgFadeStart = 0;
-static HWND g_pendingBgHwnd = nullptr;
-
-static bool g_bgSwapTriggered = false;
-
-struct RunningApp {
-    HWND hwnd;
-    std::wstring title;
-    HICON hIcon;
-};
-std::vector<RunningApp> g_runningApps;
-
-// Get Running Applications
-BOOL CALLBACK EnumWindowsProc(HWND hwnd, LPARAM lParam) {
-    if (!IsWindowVisible(hwnd)) return TRUE;
-
-    int cloaked = 0;
-    DwmGetWindowAttribute(hwnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked));
-    if (cloaked) return TRUE;
-
-    LONG exStyle = GetWindowLongW(hwnd, GWL_EXSTYLE);
-    if (exStyle & WS_EX_TOOLWINDOW) return TRUE;
-
-    WCHAR buffer[256];
-    if (GetWindowTextW(hwnd, buffer, 256) == 0) return TRUE;
-    std::wstring title(buffer);
-
-    if (hwnd == hAppSwitcherWnd) return TRUE;
-    if (title == L"Program Manager") return TRUE;
-
-    std::wstring cleanTitle = title;
-    size_t lastPos = std::wstring::npos;
-    size_t sepLen = 0;
-
-    const wchar_t* separators[] = { L" - ", L" \x2013 ", L" \x2014 ", L" \x2015 ", L" | " };
-
-    for (const wchar_t* sep : separators) {
-        size_t pos = cleanTitle.rfind(sep);
-        if (pos != std::wstring::npos) {
-            if (lastPos == std::wstring::npos || pos > lastPos) {
-                lastPos = pos;
-                sepLen = wcslen(sep);
-            }
-        }
-    }
-
-    if (lastPos != std::wstring::npos) {
-        cleanTitle = cleanTitle.substr(lastPos + sepLen);
-    }
-
-    cleanTitle.erase(0, cleanTitle.find_first_not_of(L" \t\r\n"));
-    if (!cleanTitle.empty()) {
-        cleanTitle.erase(cleanTitle.find_last_not_of(L" \t\r\n") + 1);
-    }
-
-    if (cleanTitle.empty()) cleanTitle = title;
-
-    DWORD_PTR dwResult = 0;
-    HICON hIcon = nullptr;
-
-    if (SendMessageTimeoutW(hwnd, WM_GETICON, ICON_BIG, 0, SMTO_ABORTIFHUNG | SMTO_NORMAL, 20, &dwResult)) {
-        hIcon = (HICON)dwResult;
-    }
-    if (!hIcon && SendMessageTimeoutW(hwnd, WM_GETICON, ICON_SMALL, 0, SMTO_ABORTIFHUNG | SMTO_NORMAL, 20, &dwResult)) {
-        hIcon = (HICON)dwResult;
-    }
-    if (!hIcon) hIcon = (HICON)GetClassLongPtrW(hwnd, GCLP_HICON);
-    if (!hIcon) hIcon = (HICON)GetClassLongPtrW(hwnd, GCLP_HICONSM);
-    if (!hIcon) hIcon = LoadIcon(NULL, IDI_APPLICATION);
-
-    auto* apps = reinterpret_cast<std::vector<RunningApp>*>(lParam);
-    apps->push_back({ hwnd, cleanTitle, hIcon });
-
-    return TRUE;
-}
-
-// Wrapper
-void RefreshRunningApps() {
-    g_runningApps.clear();
-    EnumWindows(EnumWindowsProc, reinterpret_cast<LPARAM>(&g_runningApps));
-}
 
 enum ACCENT_STATE {
     ACCENT_ENABLE_BLURBEHIND = 3,
@@ -140,96 +51,6 @@ void __stdcall SetupModernBlur(HWND hWnd) {
     }
 }
 
-// Background Delay Engine
-void AppSwitcher_ResetHoverTimer(HWND hWnd) {
-    KillTimer(hWnd, 1);
-    KillTimer(hWnd, 2);
-
-    if (g_hThumbFade) {
-        DwmUnregisterThumbnail(g_hThumbFade);
-        g_hThumbFade = nullptr;
-    }
-    g_bgFadeStart = 0;
-    ShowWindow(g_hProxyWnd, SW_HIDE);
-
-    int delay = g_config.appSwitcher.blur.hoverDelay;
-
-    SetTimer(hWnd, 1, delay, NULL);
-}
-
-// Cards 
-void DrawCards(HWND hWnd, HDC hdc, const AppConfig& config, const std::vector<RunningApp>& apps, int selectedIndex) {
-    if (apps.empty()) return;
-
-    int screenW = GetSystemMetrics(SM_CXSCREEN);
-    int screenH = GetSystemMetrics(SM_CYSCREEN);
-
-    int cardW = 150;
-    int cardH = 150;
-    int gap = 24;
-    int maxCols = 7;
-
-    int numApps = (int)apps.size();
-    int cols = (numApps < maxCols) ? numApps : maxCols;
-    int rows = (numApps + cols - 1) / cols;
-
-    int totalH = (rows * cardH) + ((rows - 1) * gap);
-    int startY = (screenH - totalH) / 2;
-
-    HFONT hFont = CreateFontW(16, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_OUTLINE_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, VARIABLE_PITCH, L"Segoe UI Variable Display");
-    HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
-
-    HBRUSH hNormalBrush = CreateSolidBrush(RGB(30, 30, 46));
-    HBRUSH hSelectBrush = CreateSolidBrush(RGB(49, 50, 68));
-
-    HPEN hNormalPen = CreatePen(PS_INSIDEFRAME, 2, RGB(45, 45, 65));
-    HPEN hAccentPen = CreatePen(PS_INSIDEFRAME, 2, RGB(137, 180, 250));
-
-    SetBkMode(hdc, TRANSPARENT);
-
-    for (int i = 0; i < numApps; ++i) {
-        int row = i / cols;
-        int col = i % cols;
-
-        int appsInThisRow = (row == rows - 1) ? (numApps - (row * cols)) : cols;
-        int rowWidth = (appsInThisRow * cardW) + ((appsInThisRow - 1) * gap);
-        int rowStartX = (screenW - rowWidth) / 2;
-
-        int xPos = rowStartX + (col * (cardW + gap));
-        int yPos = startY + (row * (cardH + gap));
-        RECT cardRect = { xPos, yPos, xPos + cardW, yPos + cardH };
-
-        if (i == selectedIndex) {
-            SelectObject(hdc, hSelectBrush);
-            SelectObject(hdc, hAccentPen);
-        }
-        else {
-            SelectObject(hdc, hNormalBrush);
-            SelectObject(hdc, hNormalPen);
-        }
-
-        RoundRect(hdc, cardRect.left, cardRect.top, cardRect.right, cardRect.bottom, 16, 16);
-
-        if (apps[i].hIcon) {
-            int iconSize = 48;
-            DrawIconEx(hdc, cardRect.left + (cardW - iconSize) / 2, cardRect.top + 26, apps[i].hIcon, iconSize, iconSize, 0, NULL, DI_NORMAL);
-        }
-
-        if (i == selectedIndex) SetTextColor(hdc, RGB(205, 214, 244));
-        else SetTextColor(hdc, RGB(166, 173, 200));
-
-        RECT textRect = cardRect;
-        textRect.top += 88; textRect.bottom -= 12; textRect.left += 12; textRect.right -= 12;
-        DrawTextW(hdc, apps[i].title.c_str(), -1, &textRect, DT_CENTER | DT_WORDBREAK | DT_END_ELLIPSIS | DT_NOPREFIX);
-    }
-
-    SelectObject(hdc, hOldFont);
-    DeleteObject(hFont);
-    DeleteObject(hNormalBrush); DeleteObject(hSelectBrush);
-    DeleteObject(hNormalPen); DeleteObject(hAccentPen);
-}
 
 // Window Procedure
 LRESULT CALLBACK AppSwitcher_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
@@ -361,12 +182,6 @@ void AppSwitcher_Init(HINSTANCE hInstance)
     hAppSwitcherWnd = OverlayEngine_Create(hInstance, settings, AppSwitcher_WndProc);
 }
 
-// Visibility
-bool AppSwitcher_IsVisible()
-{
-    return isVisible;
-}
-
 // Blur
 void FadeWindow(HWND hWnd, bool fadeIn) {
     g_isFadingIn = fadeIn;
@@ -451,40 +266,3 @@ int AppSwitcher_GetScrollDelta() {
     return delta;
 }
 
-// Selection Nav
-void AppSwitcher_NextApp() {
-    if (g_runningApps.empty()) return;
-    g_selectedIndex++;
-    if (g_selectedIndex >= (int)g_runningApps.size()) g_selectedIndex = 0;
-
-    AppSwitcher_ResetHoverTimer(hAppSwitcherWnd);
-    InvalidateRect(hAppSwitcherWnd, NULL, FALSE);
-}
-
-void AppSwitcher_PrevApp() {
-    if (g_runningApps.empty()) return;
-    g_selectedIndex--;
-    if (g_selectedIndex < 0) g_selectedIndex = (int)g_runningApps.size() - 1;
-
-    AppSwitcher_ResetHoverTimer(hAppSwitcherWnd);
-    InvalidateRect(hAppSwitcherWnd, NULL, FALSE);
-}
-
-// Context Actions
-void AppSwitcher_Commit() {
-    if (g_runningApps.empty() || g_selectedIndex < 0 || g_selectedIndex >= (int)g_runningApps.size()) return;
-
-    HWND target = g_runningApps[g_selectedIndex].hwnd;
-    if (IsIconic(target)) {
-        ShowWindowAsync(target, SW_RESTORE);
-    }
-    else {
-        ShowWindowAsync(target, SW_SHOW);
-    }
-    SetForegroundWindow(target);
-
-    if (GetKeyState(VK_CAPITAL) & 0x0001) {
-        keybd_event(VK_CAPITAL, 0x3a, KEYEVENTF_EXTENDEDKEY | 0, 0);
-        keybd_event(VK_CAPITAL, 0x3a, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0);
-    }
-}

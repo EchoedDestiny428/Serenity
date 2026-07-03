@@ -152,6 +152,9 @@
     <ClInclude Include="Resource.h" />
     <ClInclude Include="Subsystems\Input\InputHandler.h" />
     <ClInclude Include="Subsystems\Interface\AppSwitcher\AppSwitcher.h" />
+    <ClInclude Include="Subsystems\Interface\AppSwitcher\Logic.h" />
+    <ClInclude Include="Subsystems\Interface\AppSwitcher\Render.h" />
+    <ClInclude Include="Subsystems\Interface\AppSwitcher\State.h" />
     <ClInclude Include="Subsystems\Windowing\OverlayEngine.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
@@ -169,6 +172,9 @@
     <ClCompile Include="Core\SettingsManager.cpp" />
     <ClCompile Include="Subsystems\Input\InputHandler.cpp" />
     <ClCompile Include="Subsystems\Interface\AppSwitcher\AppSwitcher.cpp" />
+    <ClCompile Include="Subsystems\Interface\AppSwitcher\Logic.cpp" />
+    <ClCompile Include="Subsystems\Interface\AppSwitcher\Render.cpp" />
+    <ClCompile Include="Subsystems\Interface\AppSwitcher\State.cpp" />
     <ClCompile Include="Subsystems\Windowing\OverlayEngine.cpp" />
   </ItemGroup>
   <ItemGroup>

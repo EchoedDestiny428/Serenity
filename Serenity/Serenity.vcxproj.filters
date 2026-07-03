@@ -62,6 +62,15 @@
     <ClInclude Include="Subsystems\Windowing\OverlayEngine.h">
       <Filter>Subsystems\Windowing</Filter>
     </ClInclude>
+    <ClInclude Include="Subsystems\Interface\AppSwitcher\Logic.h">
+      <Filter>Subsystems\Interface\AppSwitcher</Filter>
+    </ClInclude>
+    <ClInclude Include="Subsystems\Interface\AppSwitcher\Render.h">
+      <Filter>Subsystems\Interface\AppSwitcher</Filter>
+    </ClInclude>
+    <ClInclude Include="Subsystems\Interface\AppSwitcher\State.h">
+      <Filter>Subsystems\Interface\AppSwitcher</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Serenity.rc">
@@ -93,6 +102,15 @@
     </ClCompile>
     <ClCompile Include="Subsystems\Windowing\OverlayEngine.cpp">
       <Filter>Subsystems\Windowing</Filter>
+    </ClCompile>
+    <ClCompile Include="Subsystems\Interface\AppSwitcher\Logic.cpp">
+      <Filter>Subsystems\Interface\AppSwitcher</Filter>
+    </ClCompile>
+    <ClCompile Include="Subsystems\Interface\AppSwitcher\Render.cpp">
+      <Filter>Subsystems\Interface\AppSwitcher</Filter>
+    </ClCompile>
+    <ClCompile Include="Subsystems\Interface\AppSwitcher\State.cpp">
+      <Filter>Subsystems\Interface\AppSwitcher</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
