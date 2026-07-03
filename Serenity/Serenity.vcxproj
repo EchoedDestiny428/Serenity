@@ -150,6 +150,7 @@
     <ClInclude Include="Core\SettingsManager.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="Subsystems\Graphics\GraphicsEngine.h" />
     <ClInclude Include="Subsystems\Input\InputHandler.h" />
     <ClInclude Include="Subsystems\Interface\AppSwitcher\AppSwitcher.h" />
     <ClInclude Include="Subsystems\Interface\AppSwitcher\Logic.h" />
@@ -170,6 +171,7 @@
   <ItemGroup>
     <ClCompile Include="Core\Serenity.cpp" />
     <ClCompile Include="Core\SettingsManager.cpp" />
+    <ClCompile Include="Subsystems\Graphics\GraphicsEngine.cpp" />
     <ClCompile Include="Subsystems\Input\InputHandler.cpp" />
     <ClCompile Include="Subsystems\Interface\AppSwitcher\AppSwitcher.cpp" />
     <ClCompile Include="Subsystems\Interface\AppSwitcher\Logic.cpp" />
