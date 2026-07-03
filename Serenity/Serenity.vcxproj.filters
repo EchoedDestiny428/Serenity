@@ -1,10 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
     <Filter Include="Header Files">
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
@@ -19,6 +15,27 @@
     <Filter Include="Assets\Icons">
       <UniqueIdentifier>{39a65ab9-9081-4878-95cc-d3e29550c31f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Core">
+      <UniqueIdentifier>{fc33a602-c9c1-4765-9a92-f64d8898a71f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Subsystems">
+      <UniqueIdentifier>{712a5110-9d36-464b-b062-f6500cd87fd6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Subsystems\Interface">
+      <UniqueIdentifier>{ed525f60-d805-4c11-8946-20c73eb6a8c8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Subsystems\Graphics">
+      <UniqueIdentifier>{816b475d-ea76-4e30-8734-d84a5439c81f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Subsystems\Input">
+      <UniqueIdentifier>{3715668b-2a35-44fa-9816-f9baad57cc15}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Subsystems\Windowing">
+      <UniqueIdentifier>{9e3b8202-8f8a-46f5-bdd9-c0b0099040dc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Subsystems\Interface\AppSwitcher">
+      <UniqueIdentifier>{003aa79d-1ee6-4b97-a788-ea5aa04008c2}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -30,38 +47,21 @@
     <ClInclude Include="Resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Serenity.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="Core\Serenity.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="OverlayEngine.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="Core\SettingsManager.h">
+      <Filter>Core</Filter>
     </ClInclude>
-    <ClInclude Include="AppSwitcher.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="Subsystems\Interface\AppSwitcher\AppSwitcher.h">
+      <Filter>Subsystems\Interface\AppSwitcher</Filter>
     </ClInclude>
-    <ClInclude Include="InputHandler.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="Subsystems\Input\InputHandler.h">
+      <Filter>Subsystems\Input</Filter>
     </ClInclude>
-    <ClInclude Include="SettingsManager.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="Subsystems\Windowing\OverlayEngine.h">
+      <Filter>Subsystems\Windowing</Filter>
     </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="Serenity.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="OverlayEngine.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="AppSwitcher.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="InputHandler.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="SettingsManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Serenity.rc">
@@ -79,6 +79,25 @@
     </Image>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Settings.ini" />
+    <ClCompile Include="Core\Serenity.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Core\SettingsManager.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Subsystems\Interface\AppSwitcher\AppSwitcher.cpp">
+      <Filter>Subsystems\Interface\AppSwitcher</Filter>
+    </ClCompile>
+    <ClCompile Include="Subsystems\Input\InputHandler.cpp">
+      <Filter>Subsystems\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="Subsystems\Windowing\OverlayEngine.cpp">
+      <Filter>Subsystems\Windowing</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Core\Settings.ini">
+      <Filter>Core</Filter>
+    </None>
   </ItemGroup>
 </Project>

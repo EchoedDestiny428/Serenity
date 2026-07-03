@@ -1,6 +1,6 @@
 #include "InputHandler.h"
-#include "AppSwitcher.h"
-#include "SettingsManager.h"
+#include "Subsystems/Interface/AppSwitcher/AppSwitcher.h"
+#include "Core/SettingsManager.h"
 
 void HandleInput() {
     static ULONGLONG AppSwitcherHoldStart = 0;

@@ -1,9 +1,9 @@
 #include "framework.h"
 
 #include "Serenity.h"
-#include "OverlayEngine.h"
-#include "AppSwitcher.h"
-#include "InputHandler.h"
+#include "Subsystems/Windowing/OverlayEngine.h"
+#include "Subsystems/Interface/AppSwitcher/AppSwitcher.h"
+#include "Subsystems/Input/InputHandler.h"
 
 #include <shellapi.h> 
 

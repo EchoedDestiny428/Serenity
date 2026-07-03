@@ -111,6 +111,7 @@
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)Subsystems;$(ProjectDir)Subsystems\Interface</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -120,7 +121,7 @@
       <EnableSegmentHeap>true</EnableSegmentHeap>
     </Manifest>
     <PostBuildEvent>
-      <Command>copy /Y "$(ProjectDir)settings.ini" "$(TargetDir)"</Command>
+      <Command>copy /Y "$(ProjectDir)Core\settings.ini" "$(TargetDir)"</Command>
     </PostBuildEvent>
     <PostBuildEvent>
       <Message>Copy settings into main executable directory.</Message>
@@ -145,21 +146,14 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="AppSwitcher.h" />
+    <ClInclude Include="Core\Serenity.h" />
+    <ClInclude Include="Core\SettingsManager.h" />
     <ClInclude Include="framework.h" />
-    <ClInclude Include="InputHandler.h" />
-    <ClInclude Include="OverlayEngine.h" />
     <ClInclude Include="Resource.h" />
-    <ClInclude Include="Serenity.h" />
-    <ClInclude Include="SettingsManager.h" />
+    <ClInclude Include="Subsystems\Input\InputHandler.h" />
+    <ClInclude Include="Subsystems\Interface\AppSwitcher\AppSwitcher.h" />
+    <ClInclude Include="Subsystems\Windowing\OverlayEngine.h" />
     <ClInclude Include="targetver.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="AppSwitcher.cpp" />
-    <ClCompile Include="InputHandler.cpp" />
-    <ClCompile Include="OverlayEngine.cpp" />
-    <ClCompile Include="Serenity.cpp" />
-    <ClCompile Include="SettingsManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Serenity.rc" />
@@ -171,7 +165,14 @@
     <Text Include="Assets\test.txt" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Settings.ini" />
+    <ClCompile Include="Core\Serenity.cpp" />
+    <ClCompile Include="Core\SettingsManager.cpp" />
+    <ClCompile Include="Subsystems\Input\InputHandler.cpp" />
+    <ClCompile Include="Subsystems\Interface\AppSwitcher\AppSwitcher.cpp" />
+    <ClCompile Include="Subsystems\Windowing\OverlayEngine.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Core\Settings.ini" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

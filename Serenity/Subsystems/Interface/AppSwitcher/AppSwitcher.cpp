@@ -1,8 +1,8 @@
 #include "AppSwitcher.h"
-#include "OverlayEngine.h"
+#include "Subsystems/Windowing/OverlayEngine.h"
 #include <vector>
 #include <string>
-#include "SettingsManager.h"
+#include "Core/SettingsManager.h"
 #include <dwmapi.h>
 #pragma comment(lib, "dwmapi.lib")
 #pragma comment(lib, "msimg32.lib")
