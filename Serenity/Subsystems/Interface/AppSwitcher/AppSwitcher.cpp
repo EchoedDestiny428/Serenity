@@ -78,9 +78,14 @@ LRESULT CALLBACK AppSwitcher_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
                 if (isVisible && g_selectedIndex >= 0 && g_selectedIndex < (int)g_runningApps.size()) {
                     if (g_lastHoveredIndex == g_selectedIndex) return 0;
 
+                    if (g_hThumbFade) {
+                        DwmUnregisterThumbnail(g_hThumbFade);
+                        g_hThumbFade = nullptr;
+                    }
+
                     g_pendingBgHwnd = g_runningApps[g_selectedIndex].hwnd;
 
-                    SetWindowPos(g_hProxyWnd, hWnd, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+                    SetWindowPos(g_hProxyWnd, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 
                     if (SUCCEEDED(DwmRegisterThumbnail(g_hProxyWnd, g_pendingBgHwnd, &g_hThumbFade))) {
                         DWM_THUMBNAIL_PROPERTIES props = { 0 };
@@ -97,13 +102,13 @@ LRESULT CALLBACK AppSwitcher_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
                     }
                 }
             }
-            else if (wParam == 2) {
+            else if (wParam == 2) { // --- FADE ANIMATION ---
                 if (g_bgFadeStart != 0 && g_hThumbFade) {
                     ULONGLONG elapsed = GetTickCount64() - g_bgFadeStart;
                     float t = (float)elapsed / 150.0f;
 
                     if (t >= 1.0f && !g_bgSwapTriggered) {
-                        SetWindowPos(g_pendingBgHwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
+                        SetWindowPos(g_pendingBgHwnd, g_hProxyWnd, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
                         g_bgSwapTriggered = true;
 
                         DWM_THUMBNAIL_PROPERTIES props = { 0 };
@@ -263,7 +268,17 @@ void AppSwitcher_Show() {
 // Hide Window
 void AppSwitcher_Hide() {
     if (isVisible) {
-        KillTimer(hAppSwitcherWnd, 1); // Safety cancel
+        KillTimer(hAppSwitcherWnd, 1);
+        KillTimer(hAppSwitcherWnd, 2);
+
+        if (g_hThumbFade) {
+            DwmUnregisterThumbnail(g_hThumbFade);
+            g_hThumbFade = nullptr;
+        }
+        if (g_hProxyWnd) {
+            ShowWindow(g_hProxyWnd, SW_HIDE);
+        }
+
         FadeWindow(hAppSwitcherWnd, false);
     }
 }
