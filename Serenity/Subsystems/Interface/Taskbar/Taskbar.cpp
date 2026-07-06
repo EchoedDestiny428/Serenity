@@ -75,7 +75,7 @@ LRESULT CALLBACK Taskbar_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
             PAINTSTRUCT ps;
             BeginPaint(hWnd, &ps);
 
-            auto target = Graphics::GetRenderTarget();
+            auto target = Graphics::GetRenderTarget(hWnd);
             if (target) {
                 target->BeginDraw();
 

@@ -60,7 +60,7 @@ LRESULT CALLBACK AppSwitcher_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
             PAINTSTRUCT ps;
             BeginPaint(hWnd, &ps);
 
-            auto target = Graphics::GetRenderTarget();
+            auto target = Graphics::GetRenderTarget(hWnd);
             if (target) {
                 target->BeginDraw();
                 target->Clear(D2D1::ColorF(0, 0, 0, 0));

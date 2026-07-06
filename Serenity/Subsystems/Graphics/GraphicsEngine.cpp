@@ -1,7 +1,7 @@
 #include "GraphicsEngine.h"
 
 static ID2D1Factory* pFactory = nullptr;
-static ID2D1HwndRenderTarget* pRenderTarget = nullptr;
+static std::unordered_map<HWND, ID2D1HwndRenderTarget*> renderTargets;
 
 namespace Graphics {
 
@@ -11,7 +11,8 @@ namespace Graphics {
             if (FAILED(hr)) return false;
         }
 
-        if (!pRenderTarget) {
+        // Only create a new target if this specific window doesn't have one yet
+        if (renderTargets.find(hWnd) == renderTargets.end()) {
             RECT rc;
             GetClientRect(hWnd, &rc);
 
@@ -28,17 +29,23 @@ namespace Graphics {
                 D2D1::SizeU(rc.right - rc.left, rc.bottom - rc.top)
             );
 
-            HRESULT hr = pFactory->CreateHwndRenderTarget(props, hwndProps, &pRenderTarget);
+            ID2D1HwndRenderTarget* pTarget = nullptr;
+            HRESULT hr = pFactory->CreateHwndRenderTarget(props, hwndProps, &pTarget);
             if (FAILED(hr)) return false;
+
+            renderTargets[hWnd] = pTarget;
         }
         return true;
     }
 
     void Cleanup() {
-        if (pRenderTarget) {
-            pRenderTarget->Release();
-            pRenderTarget = nullptr;
+        for (auto& pair : renderTargets) {
+            if (pair.second) {
+                pair.second->Release();
+            }
         }
+        renderTargets.clear();
+
         if (pFactory) {
             pFactory->Release();
             pFactory = nullptr;
@@ -46,5 +53,12 @@ namespace Graphics {
     }
 
     ID2D1Factory* GetFactory() { return pFactory; }
-    ID2D1HwndRenderTarget* GetRenderTarget() { return pRenderTarget; }
+    
+    ID2D1HwndRenderTarget* GetRenderTarget(HWND hWnd) { 
+        auto it = renderTargets.find(hWnd);
+        if (it != renderTargets.end()) {
+            return it->second;
+        }
+        return nullptr;
+    }
 }
