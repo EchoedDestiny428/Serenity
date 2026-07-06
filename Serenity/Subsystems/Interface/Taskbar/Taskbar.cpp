@@ -66,6 +66,11 @@ LRESULT CALLBACK Taskbar_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
             return 1; 
         }
 
+		case WM_SETCURSOR: {
+			SetCursor(LoadCursorW(NULL, IDC_ARROW));
+			return TRUE;
+		}
+
         case WM_PAINT: {
             PAINTSTRUCT ps;
             BeginPaint(hWnd, &ps);
@@ -79,7 +84,7 @@ LRESULT CALLBACK Taskbar_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPa
                 ID2D1SolidColorBrush* bgBrush = nullptr;
                 ID2D1SolidColorBrush* borderBrush = nullptr;
 
-                target->CreateSolidColorBrush(D2D1::ColorF(0.08f, 0.08f, 0.08f, 0.8f), &bgBrush);
+                target->CreateSolidColorBrush(D2D1::ColorF(0.08f, 0.08f, 0.08f, 0.9f), &bgBrush);
                 target->CreateSolidColorBrush(D2D1::ColorF(0.7f, 0.3f, 1.0f, 1.0f), &borderBrush);
 
                 if (bgBrush && borderBrush) {
