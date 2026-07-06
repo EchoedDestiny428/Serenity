@@ -7,7 +7,6 @@
 #include <unordered_map>
 #include <wincodec.h>
 
-// Assuming these paths based on your include directives
 #include "AppSwitcher/State.h"
 #include "AppSwitcher/Logic.h"
 
