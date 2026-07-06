@@ -1,6 +1,6 @@
 #include "TopBar.h"
-#include "../Graphics/GraphicsEngine.h"
-#include "../Windowing/OverlayEngine.h"
+#include "Graphics/GraphicsEngine.h"
+#include "Windowing/OverlayEngine.h"
 #include <d2d1.h>
 #include <shellapi.h>
 
