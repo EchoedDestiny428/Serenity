@@ -103,7 +103,7 @@ LRESULT CALLBACK AppSwitcher_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
                     float t = (float)elapsed / 150.0f;
 
                     if (t >= 1.0f && !g_bgSwapTriggered) {
-                        SetWindowPos(g_pendingBgHwnd, hWnd, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
+                        SetWindowPos(g_pendingBgHwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_ASYNCWINDOWPOS);
                         g_bgSwapTriggered = true;
 
                         DWM_THUMBNAIL_PROPERTIES props = { 0 };
