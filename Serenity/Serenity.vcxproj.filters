@@ -36,6 +36,9 @@
     <Filter Include="Subsystems\Interface\AppSwitcher">
       <UniqueIdentifier>{003aa79d-1ee6-4b97-a788-ea5aa04008c2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Subsystems\Interface\Taskbar">
+      <UniqueIdentifier>{ec301ac3-6414-406d-ab8b-83360403efbf}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -70,6 +73,12 @@
     </ClInclude>
     <ClInclude Include="Subsystems\Interface\AppSwitcher\State.h">
       <Filter>Subsystems\Interface\AppSwitcher</Filter>
+    </ClInclude>
+    <ClInclude Include="Subsystems\Graphics\GraphicsEngine.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Subsystems\Interface\Taskbar\Taskbar.h">
+      <Filter>Subsystems\Interface\Taskbar</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -111,6 +120,10 @@
     </ClCompile>
     <ClCompile Include="Subsystems\Interface\AppSwitcher\State.cpp">
       <Filter>Subsystems\Interface\AppSwitcher</Filter>
+    </ClCompile>
+    <ClCompile Include="Subsystems\Graphics\GraphicsEngine.cpp" />
+    <ClCompile Include="Subsystems\Interface\Taskbar\Taskbar.cpp">
+      <Filter>Subsystems\Interface\Taskbar</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
