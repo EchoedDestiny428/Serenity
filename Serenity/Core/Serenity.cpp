@@ -5,6 +5,7 @@
 #include "Subsystems/Interface/AppSwitcher/AppSwitcher.h"
 #include "Subsystems/Input/InputHandler.h"
 #include "Subsystems/Interface/Taskbar/Taskbar.h"
+#include "Subsystems/Interface/Topbar/TopBar.h"
 
 #include <shellapi.h> 
 
@@ -120,6 +121,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    AppSwitcher_Init(hInstance);
    Taskbar_Init(hInstance);
    Taskbar_Show();
+   TopBar_Init(hInstance);
+   TopBar_Show();
 
    return TRUE;
 }
