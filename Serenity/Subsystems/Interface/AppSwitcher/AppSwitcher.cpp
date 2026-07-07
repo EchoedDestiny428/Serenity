@@ -143,6 +143,16 @@ LRESULT CALLBACK AppSwitcher_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM
             if (g_hThumbFade) DwmUnregisterThumbnail(g_hThumbFade);
             if (g_hProxyWnd) DestroyWindow(g_hProxyWnd);
 
+            for (auto& pair : g_appSwitcherIconCache) {
+                if (pair.second) pair.second->Release();
+            }
+            g_appSwitcherIconCache.clear();
+
+            if (pAppSwitcherWIC) {
+                pAppSwitcherWIC->Release();
+                pAppSwitcherWIC = nullptr;
+            }
+
             PostQuitMessage(0);
             return 0;
         }
