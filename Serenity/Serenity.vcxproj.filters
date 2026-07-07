@@ -39,6 +39,9 @@
     <Filter Include="Subsystems\Interface\Taskbar">
       <UniqueIdentifier>{ec301ac3-6414-406d-ab8b-83360403efbf}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Subsystems\Interface\Topbar">
+      <UniqueIdentifier>{b524fe2a-46a9-457d-992b-b63072594d6d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -79,6 +82,9 @@
     </ClInclude>
     <ClInclude Include="Subsystems\Interface\Taskbar\Taskbar.h">
       <Filter>Subsystems\Interface\Taskbar</Filter>
+    </ClInclude>
+    <ClInclude Include="Subsystems\Interface\Topbar\topbar.h">
+      <Filter>Subsystems\Interface\Topbar</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -124,6 +130,9 @@
     <ClCompile Include="Subsystems\Graphics\GraphicsEngine.cpp" />
     <ClCompile Include="Subsystems\Interface\Taskbar\Taskbar.cpp">
       <Filter>Subsystems\Interface\Taskbar</Filter>
+    </ClCompile>
+    <ClCompile Include="Subsystems\Interface\Topbar\topbar.cpp">
+      <Filter>Subsystems\Interface\Topbar</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

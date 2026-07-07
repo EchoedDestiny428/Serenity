@@ -3,11 +3,15 @@
 #include "Windowing/OverlayEngine.h"
 #include <d2d1.h>
 #include <shellapi.h>
+#include <dwmapi.h>
 
 #pragma comment(lib, "shell32.lib")
 
 static HWND hTopBarWnd = nullptr;
-static int topBarHeight = 32;
+static int topBarHeight = 60;
+static int marginX = 8.0f;
+static int marginY = 6.0f;
+static int cornerRadius = 6.0f;
 
 void RegisterAppBar(HWND hWnd) {
     APPBARDATA abd = { sizeof(APPBARDATA) };
@@ -40,35 +44,36 @@ LRESULT CALLBACK TopBar_WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
         case WM_PAINT: {
             PAINTSTRUCT ps;
             BeginPaint(hWnd, &ps);
-            
+
             auto target = Graphics::GetRenderTarget(hWnd);
             if (target) {
                 target->BeginDraw();
-                
+
+                target->Clear(D2D1::ColorF(0.0f, 0.0f, 0.0f, 0.0f));
+
                 ID2D1SolidColorBrush* bgBrush = nullptr;
-                target->CreateSolidColorBrush(D2D1::ColorF(0.12f, 0.12f, 0.14f, 1.0f), &bgBrush);
-                
-                if (bgBrush) {
+                ID2D1SolidColorBrush* borderBrush = nullptr;
+
+                target->CreateSolidColorBrush(D2D1::ColorF(0.0f, 0.0f, 0.0f, 1.0f), &bgBrush);
+                target->CreateSolidColorBrush(D2D1::ColorF(0.7f, 0.3f, 1.0f, 1.0f), &borderBrush);
+
+                if (bgBrush && borderBrush) {
                     D2D1_SIZE_F size = target->GetSize();
-                    D2D1_RECT_F rect = D2D1::RectF(0.0f, 0.0f, size.width, size.height);
-                    
-                    target->FillRectangle(&rect, bgBrush);
-                    
-                    ID2D1SolidColorBrush* borderBrush = nullptr;
-                    target->CreateSolidColorBrush(D2D1::ColorF(0.2f, 0.2f, 0.25f, 1.0f), &borderBrush);
-                    if (borderBrush) {
-                        target->DrawLine(
-                            D2D1::Point2F(0.0f, size.height - 0.5f), 
-                            D2D1::Point2F(size.width, size.height - 0.5f), 
-                            borderBrush, 1.0f
-                        );
-                        borderBrush->Release();
-                    }
+
+                    D2D1_ROUNDED_RECT rr = D2D1::RoundedRect(
+                        D2D1::RectF(marginX, marginY, size.width - marginX, size.height - marginY),
+						cornerRadius, cornerRadius
+                    );
+
+                    target->FillRoundedRectangle(&rr, bgBrush);
+                    target->DrawRoundedRectangle(&rr, borderBrush, 1.0f);
+
                     bgBrush->Release();
+                    borderBrush->Release();
                 }
-                
+
                 // TODO: Draw clock, workspaces, and system info here!
-                
+
                 target->EndDraw();
             }
             EndPaint(hWnd, &ps);
@@ -94,6 +99,8 @@ void TopBar_Init(HINSTANCE hInstance) {
     
     SetWindowLong(hTopBarWnd, GWL_EXSTYLE, GetWindowLong(hTopBarWnd, GWL_EXSTYLE) & ~(WS_EX_TRANSPARENT | WS_EX_LAYERED));
     
+	MARGINS margins = {-1, -1, -1, -1};
+	DwmExtendFrameIntoClientArea(hTopBarWnd, &margins);
     RegisterAppBar(hTopBarWnd);
 }
 
